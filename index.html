@@ -3,9 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>Rifa Mestre · Mobile</title>
+    <title>Rifa Pro · Grupo · Recibo único</title>
+    <!-- Dexie (IndexedDB) -->
     <script src="https://unpkg.com/dexie@3.2.3/dist/dexie.js"></script>
+    <!-- jsPDF para gerar PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
+        /* (mesmo estilo anterior, mantido por brevidade) */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -14,7 +18,7 @@
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f2f5f9;
+            background: #f4f7fc;
             min-height: 100vh;
             display: flex;
             justify-content: center;
@@ -26,20 +30,20 @@
             width: 100%;
             background: #ffffff;
             border-radius: 36px 36px 24px 24px;
-            box-shadow: 0 20px 40px rgba(0,20,40,0.12);
+            box-shadow: 0 20px 40px rgba(0,20,50,0.1);
             overflow: hidden;
             padding: 20px 16px 30px;
         }
 
         h1 {
-            font-size: 2.2rem;
+            font-size: 2rem;
             font-weight: 700;
             letter-spacing: -0.5px;
-            color: #0c1f33;
-            margin-bottom: 12px;
+            color: #0b1f34;
+            margin-bottom: 10px;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
         }
 
         .badge {
@@ -51,7 +55,6 @@
             font-weight: 500;
         }
 
-        /* abas */
         .tabs {
             display: flex;
             gap: 8px;
@@ -78,13 +81,12 @@
             box-shadow: 0 4px 12px rgba(0,102,255,0.15);
         }
 
-        /* cards */
         .card {
             background: #ffffff;
             border-radius: 26px;
             padding: 20px 16px;
             margin-bottom: 20px;
-            border: 1px solid #eaeef4;
+            border: 1px solid #e9eef4;
             box-shadow: 0 6px 16px rgba(0,0,0,0.02);
         }
 
@@ -93,6 +95,8 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 10px;
         }
 
         .card-header h2 {
@@ -101,42 +105,46 @@
             color: #152b44;
         }
 
-        /* valor rifa */
-        .valor-box {
-            background: #f0f5ff;
-            border-radius: 60px;
-            padding: 5px 5px 5px 18px;
+        .config-row {
             display: flex;
             align-items: center;
             gap: 8px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
         }
 
-        .valor-box input {
-            width: 85px;
-            border: none;
-            background: transparent;
-            font-weight: 700;
-            font-size: 1.2rem;
-            color: #1f3a68;
-            padding: 8px 0;
+        .config-row label {
+            font-weight: 500;
+            color: #2a405c;
+            min-width: 70px;
         }
 
-        .valor-box input:focus {
+        .config-row input {
+            flex: 1;
+            padding: 12px 16px;
+            border-radius: 40px;
+            border: 1.5px solid #d0dae8;
+            font-size: 1rem;
+            background: #f9fcff;
+        }
+
+        .config-row input:focus {
             outline: none;
+            border-color: #0066ff;
         }
 
-        .valor-box button {
+        .btn-small {
             background: #0066ff;
             border: none;
             color: white;
             font-weight: 600;
-            padding: 10px 18px;
+            padding: 12px 20px;
             border-radius: 40px;
             font-size: 0.9rem;
             cursor: pointer;
+            box-shadow: 0 6px 12px -4px #0066ff80;
         }
 
-        /* estatísticas */
         .stats {
             display: flex;
             gap: 10px;
@@ -166,7 +174,10 @@
             line-height: 1.2;
         }
 
-        /* ferramentas */
+        .stat.destacado {
+            background: #e1ebff;
+        }
+
         .toolbar {
             display: flex;
             gap: 10px;
@@ -245,7 +256,6 @@
             gap: 8px;
         }
 
-        /* lista de participantes */
         .participant-list {
             display: flex;
             flex-direction: column;
@@ -274,6 +284,19 @@
             font-weight: 700;
             font-size: 1.2rem;
             color: #0e263b;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .group-badge {
+            background: #e0e8ff;
+            color: #0066ff;
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 40px;
         }
 
         .part-number {
@@ -340,7 +363,7 @@
             color: #1e3148;
             cursor: pointer;
             flex: 1;
-            min-width: 80px;
+            min-width: 70px;
         }
 
         .btn-action.pagar {
@@ -349,7 +372,11 @@
             color: white;
         }
 
-        /* relatório mensal */
+        .btn-action:disabled {
+            opacity: 0.4;
+            pointer-events: none;
+        }
+
         .relatorio-mensal {
             display: flex;
             flex-direction: column;
@@ -392,7 +419,6 @@
             border-bottom: none;
         }
 
-        /* modal */
         .modal-overlay {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -421,7 +447,7 @@
             margin-bottom: 20px;
         }
 
-        .modal input {
+        .modal input, .modal textarea {
             width: 100%;
             padding: 18px;
             border-radius: 30px;
@@ -464,6 +490,7 @@
             font-weight: 700;
             font-size: 1.1rem;
             cursor: pointer;
+            margin-top: 12px;
         }
 
         .empty-message {
@@ -479,53 +506,59 @@
             text-align: center;
             margin-top: 24px;
         }
+
+        .mt-2 { margin-top: 8px; }
+        .text-small { font-size: 0.85rem; color: #5e728e; }
     </style>
 </head>
 <body>
 <div class="app">
-    <h1>🎟️ Rifa<span class="badge">mobile</span></h1>
+    <h1>🎟️ Rifa<span class="badge">GRUPO</span></h1>
 
-    <!-- Abas -->
     <div class="tabs">
         <div class="tab active" data-tab="participantes">Participantes</div>
         <div class="tab" data-tab="relatorio">Relatório Mensal</div>
     </div>
 
-    <!-- Conteúdo participantes (ativo por padrão) -->
     <div id="tabParticipantes" style="display: block;">
-        <!-- Config valor da rifa -->
         <div class="card">
             <div class="card-header">
-                <h2>💰 Valor do número</h2>
-                <div class="valor-box">
-                    <span>R$</span>
-                    <input type="number" id="valorRifaInput" step="0.01" min="0.01" value="5.00">
-                    <button id="btnSalvarValor">Salvar</button>
-                </div>
+                <h2>⚙️ Configurações</h2>
+            </div>
+            <div class="config-row">
+                <label>Prêmio</label>
+                <input type="text" id="premioInput" placeholder="Ex: Smartphone" value="Smartphone">
+            </div>
+            <div class="config-row">
+                <label>Data sorteio</label>
+                <input type="date" id="dataSorteioInput">
+            </div>
+            <div class="config-row">
+                <label>Valor R$</label>
+                <input type="number" id="valorRifaInput" step="0.01" min="0.01" value="5.00" style="flex:0.8;">
+                <button class="btn-small" id="btnSalvarConfig">Salvar</button>
             </div>
         </div>
 
-        <!-- Estatísticas -->
         <div class="stats">
             <div class="stat">
-                <div class="label">participantes</div>
-                <div class="value" id="totalParticipantes">0</div>
+                <div class="label">números</div>
+                <div class="value" id="totalNumeros">0</div>
             </div>
             <div class="stat">
                 <div class="label">arrecadado</div>
                 <div class="value" id="totalArrecadado">R$0</div>
             </div>
-            <div class="stat" style="background:#e1ebff;">
+            <div class="stat destacado">
                 <div class="label" id="monthLabel">mês atual</div>
                 <div class="value" id="totalMes">R$0</div>
             </div>
         </div>
 
-        <!-- Ferramentas de busca e filtro -->
         <div class="toolbar">
             <div class="search">
                 <span>🔍</span>
-                <input type="text" id="searchInput" placeholder="Buscar...">
+                <input type="text" id="searchInput" placeholder="Buscar nome...">
             </div>
             <div class="filter-month">
                 <select id="monthFilter">
@@ -534,41 +567,35 @@
             </div>
         </div>
 
-        <!-- Botão adicionar -->
-        <button class="btn-add" id="btnAdicionar">➕ Novo participante</button>
+        <button class="btn-add" id="btnAdicionar">➕ Adicionar números</button>
 
-        <!-- Lista de participantes -->
         <div class="participant-list" id="participantList">
-            <div class="empty-message">Nenhum participante cadastrado.</div>
+            <div class="empty-message">Nenhum número cadastrado.</div>
         </div>
     </div>
 
-    <!-- Conteúdo relatório mensal (invisível inicialmente) -->
     <div id="tabRelatorio" style="display: none;">
         <div class="card">
             <h2>📆 Relatório por mês</h2>
-            <div id="relatorioContainer" class="relatorio-mensal">
-                <!-- será preenchido via js -->
-            </div>
+            <div id="relatorioContainer" class="relatorio-mensal"></div>
         </div>
     </div>
 
-    <!-- Modal de recibo -->
     <div id="reciboModal" class="modal-overlay">
         <div class="modal">
-            <h3>🧾 Recibo</h3>
-            <div id="reciboContent" class="recibo-content" style="background:#f4f8ff; border-radius:28px; padding:22px; margin:20px 0;"></div>
-            <button class="btn-fechar" id="fecharModal">Fechar</button>
+            <h3>🧾 Recibo de pagamento</h3>
+            <div id="reciboContent" style="background:#f4f8ff; border-radius:28px; padding:22px; margin:20px 0;"></div>
+            <button class="btn-fechar" id="btnPdf">📥 Baixar PDF</button>
+            <button class="btn-fechar" id="fecharModal" style="background:#5e728e;">Fechar</button>
         </div>
     </div>
 
-    <!-- Modal de participante (novo/editar) -->
     <div id="participanteModal" class="modal-overlay">
         <div class="modal">
-            <h3 id="modalTitle">➕ Novo participante</h3>
+            <h3 id="modalTitle">➕ Adicionar números</h3>
             <input type="text" id="participanteNome" placeholder="Nome completo">
-            <input type="number" id="participanteNumero" placeholder="Número (deixe em branco para aleatório)">
-            <p style="color:#6b7f9a; margin-bottom:16px;">Se deixar em branco, será gerado automaticamente.</p>
+            <textarea id="participanteNumeros" placeholder="Números (separados por vírgula, ex: 10,15,22)" rows="3"></textarea>
+            <p class="text-small">Todos os números farão parte do mesmo grupo e terão um recibo único.</p>
             <div class="modal-actions">
                 <button class="btn-primary" id="salvarParticipante">Salvar</button>
                 <button class="btn-secondary" id="cancelarParticipante">Cancelar</button>
@@ -576,29 +603,34 @@
         </div>
     </div>
 
-    <footer>Deslize para mais • Dados salvos no dispositivo</footer>
+    <footer>Recibo único por grupo • Dados salvos</footer>
 </div>
 
 <script>
     (async function() {
-        // --- CONFIGURAÇÃO DO INDEXEDDB ---
-        const db = new Dexie('RifaDB');
-        db.version(1).stores({
-            participantes: 'id, nome, numero, pago, dataPagamento',
+        const { jsPDF } = window.jspdf;
+
+        // --- BANCO DE DADOS (versão 2 com groupId) ---
+        const db = new Dexie('RifaProDB');
+        db.version(2).stores({
+            participantes: 'id, nome, numero, pago, dataPagamento, groupId',
             config: 'chave'
         });
 
-        // --- ESTADO ---
         let participantes = [];
         let valorRifa = 5.00;
+        let premio = 'Smartphone';
+        let dataSorteio = '';
         let filtroMes = 'todos';
         let termoBusca = '';
-        let abaAtiva = 'participantes'; // 'participantes' ou 'relatorio'
+        let abaAtiva = 'participantes';
 
-        // --- ELEMENTOS DOM ---
+        // Elementos DOM
+        const premioInput = document.getElementById('premioInput');
+        const dataSorteioInput = document.getElementById('dataSorteioInput');
         const valorInput = document.getElementById('valorRifaInput');
-        const btnSalvarValor = document.getElementById('btnSalvarValor');
-        const totalParticipantesSpan = document.getElementById('totalParticipantes');
+        const btnSalvarConfig = document.getElementById('btnSalvarConfig');
+        const totalNumerosSpan = document.getElementById('totalNumeros');
         const totalArrecadadoSpan = document.getElementById('totalArrecadado');
         const totalMesSpan = document.getElementById('totalMes');
         const monthLabel = document.getElementById('monthLabel');
@@ -609,10 +641,11 @@
         const reciboModal = document.getElementById('reciboModal');
         const reciboContent = document.getElementById('reciboContent');
         const fecharModal = document.getElementById('fecharModal');
+        const btnPdf = document.getElementById('btnPdf');
         const participanteModal = document.getElementById('participanteModal');
         const modalTitle = document.getElementById('modalTitle');
         const participanteNomeInput = document.getElementById('participanteNome');
-        const participanteNumeroInput = document.getElementById('participanteNumero');
+        const participanteNumerosInput = document.getElementById('participanteNumeros');
         const salvarParticipanteBtn = document.getElementById('salvarParticipante');
         const cancelarParticipanteBtn = document.getElementById('cancelarParticipante');
         const tabParticipantes = document.getElementById('tabParticipantes');
@@ -620,26 +653,52 @@
         const relatorioContainer = document.getElementById('relatorioContainer');
         const tabs = document.querySelectorAll('.tab');
 
-        let participanteEditandoId = null; // null = novo
+        let reciboAtual = null; // guarda o grupo para PDF
 
-        // --- CARREGAR CONFIGURAÇÃO ---
+        // --- CARREGAR CONFIGURAÇÕES ---
         async function carregarConfig() {
-            const config = await db.config.get('valorRifa');
-            if (config) {
-                valorRifa = config.valor;
-                valorInput.value = valorRifa.toFixed(2);
-            } else {
-                await db.config.put({ chave: 'valorRifa', valor: valorRifa });
+            const configValor = await db.config.get('valorRifa');
+            if (configValor) valorRifa = configValor.valor;
+            else await db.config.put({ chave: 'valorRifa', valor: valorRifa });
+
+            const configPremio = await db.config.get('premio');
+            if (configPremio) premio = configPremio.valor;
+            else await db.config.put({ chave: 'premio', valor: premio });
+
+            const configData = await db.config.get('dataSorteio');
+            if (configData) dataSorteio = configData.valor;
+            else {
+                const hoje = new Date();
+                hoje.setDate(hoje.getDate() + 30);
+                dataSorteio = hoje.toISOString().split('T')[0];
+                await db.config.put({ chave: 'dataSorteio', valor: dataSorteio });
             }
+
+            premioInput.value = premio;
+            dataSorteioInput.value = dataSorteio;
+            valorInput.value = valorRifa.toFixed(2);
         }
 
-        // --- CARREGAR PARTICIPANTES ---
+        // --- CARREGAR PARTICIPANTES e garantir groupId para registros antigos ---
         async function carregarParticipantes() {
-            participantes = await db.participantes.toArray();
+            let lista = await db.participantes.toArray();
+            // Para registros sem groupId, definir groupId = id (grupo individual)
+            let precisaAtualizar = false;
+            for (let p of lista) {
+                if (!p.groupId) {
+                    p.groupId = p.id; // trata como grupo individual
+                    await db.participantes.update(p.id, { groupId: p.id });
+                    precisaAtualizar = true;
+                }
+            }
+            if (precisaAtualizar) {
+                lista = await db.participantes.toArray();
+            }
+            participantes = lista;
             aplicarFiltrosEAtualizar();
         }
 
-        // --- GERAR NÚMERO ÚNICO (com base nos participantes atuais) ---
+        // --- GERAR NÚMERO ÚNICO (caso não especificado) ---
         async function gerarNumeroUnico() {
             const numerosExistentes = new Set(participantes.map(p => p.numero));
             for (let tentativa = 0; tentativa < 1000; tentativa++) {
@@ -652,139 +711,179 @@
             return Date.now() % 10000;
         }
 
-        // --- VALIDAR NÚMERO ÚNICO (para edição) ---
-        async function numeroDisponivel(numero, ignorarId = null) {
-            const existente = participantes.find(p => p.numero === numero && p.id !== ignorarId);
-            return !existente;
+        function numeroDisponivel(numero, ignorarId = null) {
+            return !participantes.some(p => p.numero === numero && p.id !== ignorarId);
         }
 
-        // --- SALVAR PARTICIPANTE (novo ou edição) ---
-        async function salvarParticipante(nome, numeroInput, idExistente = null) {
+        // --- PROCESSAR NÚMEROS (validação) ---
+        async function processarNumeros(texto, ignorarId = null) {
+            if (!texto.trim()) return [];
+            const partes = texto.split(',').map(p => p.trim()).filter(p => p !== '');
+            const numeros = [];
+            const erros = [];
+
+            for (let parte of partes) {
+                const num = parseInt(parte);
+                if (isNaN(num)) {
+                    erros.push(`"${parte}" não é um número`);
+                    continue;
+                }
+                if (num <= 0) {
+                    erros.push(`Número ${num} deve ser positivo`);
+                    continue;
+                }
+                if (!numeroDisponivel(num, ignorarId)) {
+                    erros.push(`Número ${num} já está em uso`);
+                    continue;
+                }
+                numeros.push(num);
+            }
+
+            if (erros.length > 0) {
+                alert('Erros:\n' + erros.join('\n'));
+                return null;
+            }
+            return numeros;
+        }
+
+        // --- SALVAR MÚLTIPLOS NÚMEROS (MESMO GRUPO) ---
+        async function salvarMultiplosParticipantes(nome, numerosTexto) {
             if (!nome.trim()) {
                 alert('Digite o nome');
                 return false;
             }
 
-            let numero = numeroInput ? parseInt(numeroInput) : null;
-            if (numero && isNaN(numero)) {
-                alert('Número inválido');
-                return false;
-            }
+            const numeros = await processarNumeros(numerosTexto);
+            if (!numeros) return false;
 
-            if (idExistente) {
-                // edição
-                const original = participantes.find(p => p.id === idExistente);
-                if (!original) return false;
+            const groupId = 'grupo_' + Date.now() + '_' + Math.random().toString(36).substring(2);
 
-                // Se número foi alterado
-                if (numero && numero !== original.numero) {
-                    if (!(await numeroDisponivel(numero, idExistente))) {
-                        alert('Este número já está em uso. Escolha outro.');
-                        return false;
-                    }
-                } else if (!numero) {
-                    // manteve o original
-                    numero = original.numero;
-                }
-
-                await db.participantes.update(idExistente, {
-                    nome: nome,
-                    numero: numero
-                });
-            } else {
-                // novo
-                if (!numero) {
-                    numero = await gerarNumeroUnico();
-                } else {
-                    if (!(await numeroDisponivel(numero))) {
-                        alert('Número já existe. Escolha outro ou deixe em branco para gerar automático.');
-                        return false;
-                    }
-                }
-
+            for (let num of numeros) {
                 await db.participantes.add({
-                    id: Date.now().toString() + Math.random().toString(36).substring(2),
-                    nome: nome,
-                    numero: numero,
+                    id: Date.now().toString() + Math.random().toString(36).substring(2) + num,
+                    nome: nome.trim(),
+                    numero: num,
                     pago: false,
-                    dataPagamento: null
+                    dataPagamento: null,
+                    groupId: groupId
                 });
             }
             return true;
         }
 
-        // --- MARCAR COMO PAGO ---
-        async function marcarPago(id) {
-            const p = await db.participantes.get(id);
-            if (!p || p.pago) return;
-            await db.participantes.update(id, {
-                pago: true,
-                dataPagamento: new Date().toISOString()
-            });
+        // --- PAGAR GRUPO INTEIRO ---
+        async function marcarPagoGrupo(groupId) {
+            const participantesGrupo = participantes.filter(p => p.groupId === groupId);
+            for (let p of participantesGrupo) {
+                if (!p.pago) {
+                    await db.participantes.update(p.id, {
+                        pago: true,
+                        dataPagamento: new Date().toISOString()
+                    });
+                }
+            }
             await carregarParticipantes();
             if (abaAtiva === 'relatorio') renderizarRelatorio();
         }
 
-        // --- EXCLUIR PARTICIPANTE ---
-        async function excluirParticipante(id) {
-            if (confirm('Remover este participante?')) {
-                await db.participantes.delete(id);
+        // --- EXCLUIR GRUPO INTEIRO ---
+        async function excluirGrupo(groupId) {
+            if (confirm('Remover todos os números deste grupo?')) {
+                const participantesGrupo = participantes.filter(p => p.groupId === groupId);
+                for (let p of participantesGrupo) {
+                    await db.participantes.delete(p.id);
+                }
                 await carregarParticipantes();
                 if (abaAtiva === 'relatorio') renderizarRelatorio();
             }
         }
 
-        // --- EXIBIR RECIBO ---
-        function exibirRecibo(p) {
-            const data = p.dataPagamento ? new Date(p.dataPagamento).toLocaleString('pt-BR') : '—';
+        // --- EXIBIR RECIBO DO GRUPO ---
+        function exibirReciboGrupo(groupId) {
+            const grupo = participantes.filter(p => p.groupId === groupId);
+            if (grupo.length === 0) return;
+            // Verifica se todos estão pagos
+            if (!grupo.every(p => p.pago)) {
+                alert('Apenas grupos totalmente pagos podem gerar recibo.');
+                return;
+            }
+            reciboAtual = grupo; // armazena o array para PDF
+
+            const nomes = grupo[0].nome; // mesmo nome para todos
+            const numeros = grupo.map(p => p.numero).sort((a,b) => a-b);
+            const dataPagamento = grupo[0].dataPagamento ? new Date(grupo[0].dataPagamento).toLocaleString('pt-BR') : '—';
+            const dataSorteioFormatada = dataSorteio ? new Date(dataSorteio).toLocaleDateString('pt-BR') : '—';
+            const valorTotal = grupo.length * valorRifa;
+
+            let numerosHtml = numeros.map(n => `#${n}`).join(', ');
+
             reciboContent.innerHTML = `
-                <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed #b1c6df;"><strong>Participante</strong> <span>${p.nome}</span></div>
-                <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed #b1c6df;"><strong>Número</strong> <span>#${p.numero}</span></div>
-                <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed #b1c6df;"><strong>Valor pago</strong> <span>R$ ${valorRifa.toFixed(2)}</span></div>
-                <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed #b1c6df;"><strong>Data</strong> <span>${data}</span></div>
-                <div style="display:flex; justify-content:space-between; padding:8px 0;"><strong>Recibo</strong> <span>RIFA-${p.numero}</span></div>
+                <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed #b1c6df;"><strong>Participante</strong> <span>${nomes}</span></div>
+                <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed #b1c6df;"><strong>Números</strong> <span>${numerosHtml}</span></div>
+                <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed #b1c6df;"><strong>Quantidade</strong> <span>${grupo.length}</span></div>
+                <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed #b1c6df;"><strong>Valor unitário</strong> <span>R$ ${valorRifa.toFixed(2)}</span></div>
+                <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed #b1c6df;"><strong>Valor total</strong> <span>R$ ${valorTotal.toFixed(2)}</span></div>
+                <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed #b1c6df;"><strong>Prêmio</strong> <span>${premio}</span></div>
+                <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed #b1c6df;"><strong>Sorteio</strong> <span>${dataSorteioFormatada}</span></div>
+                <div style="display:flex; justify-content:space-between; padding:8px 0;"><strong>Data pgto.</strong> <span>${dataPagamento}</span></div>
             `;
             reciboModal.style.display = 'flex';
         }
 
-        // --- ATUALIZAR RESUMO E FILTROS ---
-        function aplicarFiltrosEAtualizar() {
-            if (abaAtiva === 'participantes') {
-                let listaFiltrada = participantes;
-                if (termoBusca.trim() !== '') {
-                    const termo = termoBusca.toLowerCase();
-                    listaFiltrada = listaFiltrada.filter(p => p.nome.toLowerCase().includes(termo));
-                }
-                if (filtroMes !== 'todos') {
-                    const [ano, mes] = filtroMes.split('-').map(Number);
-                    listaFiltrada = listaFiltrada.filter(p => {
-                        if (!p.pago || !p.dataPagamento) return false;
-                        const d = new Date(p.dataPagamento);
-                        return d.getFullYear() === ano && (d.getMonth() + 1) === mes;
-                    });
-                }
-                renderizarLista(listaFiltrada);
-            }
-            atualizarResumo();
-            preencherSelectMeses();
+        // --- GERAR PDF DO GRUPO ---
+        function gerarPDFGrupo(grupo) {
+            const doc = new jsPDF();
+            doc.setFontSize(18);
+            doc.text('Recibo de Pagamento - Rifa', 20, 20);
+            doc.setFontSize(12);
+            const nome = grupo[0].nome;
+            const numeros = grupo.map(p => p.numero).sort((a,b) => a-b).join(', ');
+            const valorTotal = grupo.length * valorRifa;
+            doc.text(`Participante: ${nome}`, 20, 40);
+            doc.text(`Números: ${numeros}`, 20, 50);
+            doc.text(`Quantidade: ${grupo.length}`, 20, 60);
+            doc.text(`Valor unitário: R$ ${valorRifa.toFixed(2)}`, 20, 70);
+            doc.text(`Valor total: R$ ${valorTotal.toFixed(2)}`, 20, 80);
+            doc.text(`Prêmio: ${premio}`, 20, 90);
+            doc.text(`Data do sorteio: ${dataSorteio ? new Date(dataSorteio).toLocaleDateString('pt-BR') : '—'}`, 20, 100);
+            doc.text(`Data do pagamento: ${grupo[0].dataPagamento ? new Date(grupo[0].dataPagamento).toLocaleString('pt-BR') : '—'}`, 20, 110);
+            doc.save(`recibo_${nome}_${grupo.length}nums.pdf`);
         }
 
-        // --- RENDERIZAR LISTA DE PARTICIPANTES ---
+        // --- RENDERIZAR LISTA (com informações de grupo) ---
         function renderizarLista(lista) {
             if (lista.length === 0) {
-                participantListDiv.innerHTML = '<div class="empty-message">Nenhum participante encontrado.</div>';
+                participantListDiv.innerHTML = '<div class="empty-message">Nenhum número encontrado.</div>';
                 return;
             }
 
-            let html = '';
-            lista.sort((a,b) => a.numero - b.numero).forEach(p => {
+            // Mapa para saber quantos números por grupo e status
+            const grupoInfo = new Map();
+            participantes.forEach(p => {
+                if (!grupoInfo.has(p.groupId)) {
+                    grupoInfo.set(p.groupId, { count: 0, anyPaid: false, allPaid: true });
+                }
+                const info = grupoInfo.get(p.groupId);
+                info.count++;
+                if (p.pago) info.anyPaid = true;
+                else info.allPaid = false;
+            });
+
+            // Ordenar por número para exibição
+            const sorted = [...lista].sort((a,b) => a.numero - b.numero);
+            let html = ''; // <-- importante: inicializar
+
+            sorted.forEach(p => {
+                const info = grupoInfo.get(p.groupId);
                 const statusClass = p.pago ? 'status-pago' : 'status-naopago';
                 const statusText = p.pago ? 'PAGO' : 'NÃO PAGO';
                 const dataStr = p.dataPagamento ? new Date(p.dataPagamento).toLocaleDateString('pt-BR') : '—';
+                const multiple = info.count > 1 ? `<span class="group-badge">${info.count} números</span>` : '';
+
                 html += `
-                    <div class="participant-card" data-id="${p.id}">
+                    <div class="participant-card" data-groupid="${p.groupId}">
                         <div class="part-row">
-                            <span class="part-name">${p.nome}</span>
+                            <span class="part-name">${p.nome} ${multiple}</span>
                             <span class="part-number">#${p.numero}</span>
                         </div>
                         <div class="part-details">
@@ -792,10 +891,9 @@
                             <span class="part-date">📅 ${dataStr}</span>
                         </div>
                         <div class="part-actions">
-                            ${!p.pago ? `<button class="btn-action pagar" data-id="${p.id}">💵 Pagar</button>` : ''}
-                            <button class="btn-action recibo" data-id="${p.id}" ${p.pago ? '' : 'disabled style="opacity:0.4;"'}>🧾 Recibo</button>
-                            <button class="btn-action editar" data-id="${p.id}">✏️ Editar</button>
-                            <button class="btn-action excluir" data-id="${p.id}">🗑️ Excluir</button>
+                            ${!info.allPaid ? `<button class="btn-action pagar" data-groupid="${p.groupId}">💵 Pagar grupo</button>` : ''}
+                            <button class="btn-action recibo" data-groupid="${p.groupId}" ${info.allPaid ? '' : 'disabled style="opacity:0.4;"'}>🧾 Recibo único</button>
+                            <button class="btn-action excluir" data-groupid="${p.groupId}">🗑️ Excluir grupo</button>
                         </div>
                     </div>
                 `;
@@ -804,38 +902,33 @@
             participantListDiv.innerHTML = html;
 
             document.querySelectorAll('.btn-action.pagar').forEach(btn => {
-                btn.addEventListener('click', (e) => { e.stopPropagation(); marcarPago(btn.dataset.id); });
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    marcarPagoGrupo(btn.dataset.groupid);
+                });
             });
             document.querySelectorAll('.btn-action.recibo').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    const id = btn.dataset.id;
-                    const p = participantes.find(x => x.id === id);
-                    if (p && p.pago) exibirRecibo(p);
-                });
-            });
-            document.querySelectorAll('.btn-action.editar').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const id = btn.dataset.id;
-                    const p = participantes.find(x => x.id === id);
-                    if (p) abrirModalEditar(p);
+                    exibirReciboGrupo(btn.dataset.groupid);
                 });
             });
             document.querySelectorAll('.btn-action.excluir').forEach(btn => {
-                btn.addEventListener('click', (e) => { e.stopPropagation(); excluirParticipante(btn.dataset.id); });
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    excluirGrupo(btn.dataset.groupid);
+                });
             });
         }
 
-        // --- ATUALIZAR RESUMO FINANCEIRO ---
+        // --- ATUALIZAR RESUMO ---
         function atualizarResumo() {
-            const totalPart = participantes.length;
+            const totalNumeros = participantes.length;
             const totalPago = participantes.filter(p => p.pago).length;
             const arrecadado = totalPago * valorRifa;
-            totalParticipantesSpan.innerText = totalPart;
+            totalNumerosSpan.innerText = totalNumeros;
             totalArrecadadoSpan.innerText = `R$ ${arrecadado.toFixed(2)}`;
 
-            // Faturamento do mês filtrado ou atual
             let listaMes = participantes;
             if (filtroMes !== 'todos') {
                 const [ano, mes] = filtroMes.split('-').map(Number);
@@ -878,7 +971,6 @@
 
         // --- RENDERIZAR RELATÓRIO MENSAL ---
         function renderizarRelatorio() {
-            // Agrupar pagamentos por mês
             const mesesMap = new Map();
             participantes.forEach(p => {
                 if (p.pago && p.dataPagamento) {
@@ -902,7 +994,6 @@
                 return;
             }
 
-            // Ordenar meses do mais recente para o mais antigo
             const mesesOrdenados = Array.from(mesesMap.entries()).sort((a,b) => b[0].localeCompare(a[0]));
 
             let html = '';
@@ -922,17 +1013,33 @@
             relatorioContainer.innerHTML = html;
         }
 
-        // --- ABRIR MODAL DE EDIÇÃO ---
-        function abrirModalEditar(p) {
-            participanteEditandoId = p.id;
-            modalTitle.innerText = '✏️ Editar participante';
-            participanteNomeInput.value = p.nome;
-            participanteNumeroInput.value = p.numero;
-            participanteModal.style.display = 'flex';
+        // --- APLICAR FILTROS E ATUALIZAR TUDO ---
+        function aplicarFiltrosEAtualizar() {
+            if (abaAtiva === 'participantes') {
+                let listaFiltrada = participantes;
+                if (termoBusca.trim() !== '') {
+                    const termo = termoBusca.toLowerCase();
+                    listaFiltrada = listaFiltrada.filter(p => p.nome.toLowerCase().includes(termo));
+                }
+                if (filtroMes !== 'todos') {
+                    const [ano, mes] = filtroMes.split('-').map(Number);
+                    listaFiltrada = listaFiltrada.filter(p => {
+                        if (!p.pago || !p.dataPagamento) return false;
+                        const d = new Date(p.dataPagamento);
+                        return d.getFullYear() === ano && (d.getMonth() + 1) === mes;
+                    });
+                }
+                renderizarLista(listaFiltrada);
+            }
+            atualizarResumo();
+            preencherSelectMeses();
         }
 
-        // --- FECHAR MODAIS ---
+        // --- EVENTOS DOS MODAIS ---
         fecharModal.addEventListener('click', () => reciboModal.style.display = 'none');
+        btnPdf.addEventListener('click', () => {
+            if (reciboAtual) gerarPDFGrupo(reciboAtual);
+        });
         window.addEventListener('click', (e) => {
             if (e.target === reciboModal) reciboModal.style.display = 'none';
             if (e.target === participanteModal) participanteModal.style.display = 'none';
@@ -943,12 +1050,11 @@
             tab.addEventListener('click', () => {
                 tabs.forEach(t => t.classList.remove('active'));
                 tab.classList.add('active');
-                const target = tab.dataset.tab;
-                abaAtiva = target;
-                if (target === 'participantes') {
+                abaAtiva = tab.dataset.tab;
+                if (abaAtiva === 'participantes') {
                     tabParticipantes.style.display = 'block';
                     tabRelatorio.style.display = 'none';
-                    aplicarFiltrosEAtualizar(); // atualiza lista com filtros atuais
+                    aplicarFiltrosEAtualizar();
                 } else {
                     tabParticipantes.style.display = 'none';
                     tabRelatorio.style.display = 'block';
@@ -957,20 +1063,19 @@
             });
         });
 
-        // --- BOTÃO NOVO PARTICIPANTE ---
+        // --- BOTÃO ADICIONAR ---
         btnAdicionar.addEventListener('click', () => {
-            participanteEditandoId = null;
-            modalTitle.innerText = '➕ Novo participante';
+            modalTitle.innerText = '➕ Adicionar números';
             participanteNomeInput.value = '';
-            participanteNumeroInput.value = '';
+            participanteNumerosInput.value = '';
             participanteModal.style.display = 'flex';
         });
 
-        // --- SALVAR PARTICIPANTE (MODAL) ---
+        // --- SALVAR MÚLTIPLOS NÚMEROS ---
         salvarParticipanteBtn.addEventListener('click', async () => {
             const nome = participanteNomeInput.value.trim();
-            const numero = participanteNumeroInput.value.trim() ? parseInt(participanteNumeroInput.value) : null;
-            if (await salvarParticipante(nome, numero, participanteEditandoId)) {
+            const numerosTexto = participanteNumerosInput.value.trim();
+            if (await salvarMultiplosParticipantes(nome, numerosTexto)) {
                 participanteModal.style.display = 'none';
                 await carregarParticipantes();
                 if (abaAtiva === 'relatorio') renderizarRelatorio();
@@ -981,14 +1086,27 @@
             participanteModal.style.display = 'none';
         });
 
-        // --- SALVAR VALOR DA RIFA ---
-        btnSalvarValor.addEventListener('click', async () => {
+        // --- SALVAR CONFIGURAÇÕES ---
+        btnSalvarConfig.addEventListener('click', async () => {
+            const novoPremio = premioInput.value.trim();
+            const novaData = dataSorteioInput.value;
             const novoValor = parseFloat(valorInput.value);
+
+            if (!novoPremio) return alert('Informe o prêmio');
+            if (!novaData) return alert('Informe a data do sorteio');
             if (isNaN(novoValor) || novoValor <= 0) return alert('Valor inválido');
+
+            premio = novoPremio;
+            dataSorteio = novaData;
             valorRifa = novoValor;
-            await db.config.put({ chave: 'valorRifa', valor: novoValor });
+
+            await db.config.put({ chave: 'premio', valor: premio });
+            await db.config.put({ chave: 'dataSorteio', valor: dataSorteio });
+            await db.config.put({ chave: 'valorRifa', valor: valorRifa });
+
             atualizarResumo();
             if (abaAtiva === 'relatorio') renderizarRelatorio();
+            alert('Configurações salvas!');
         });
 
         // --- FILTROS ---
@@ -1000,12 +1118,14 @@
         monthSelect.addEventListener('change', (e) => {
             filtroMes = e.target.value;
             aplicarFiltrosEAtualizar();
-            if (abaAtiva === 'relatorio') renderizarRelatorio(); // relatório não usa filtro de mês, mas atualizamos resumo
         });
 
         // --- INICIALIZAÇÃO ---
         await carregarConfig();
         await carregarParticipantes();
+
+        const hoje = new Date().toISOString().split('T')[0];
+        dataSorteioInput.min = hoje;
     })();
 </script>
 </body>
