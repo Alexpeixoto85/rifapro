@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>Rifa Mestre · Mobile</title>
+    <script src="https://unpkg.com/dexie@3.2.3/dist/dexie.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f2f5f9;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            padding: 10px;
+        }
+
+        .app {
+            max-width: 480px;
+            width: 100%;
+            background: #ffffff;
+            border-radius: 36px 36px 24px 24px;
+            box-shadow: 0 20px 40px rgba(0,20,40,0.12);
+            overflow: hidden;
+            padding: 20px 16px 30px;
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            color: #0c1f33;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .badge {
+            background: #0066ff;
+            color: white;
+            font-size: 0.8rem;
+            padding: 5px 14px;
+            border-radius: 40px;
+            font-weight: 500;
+        }
+
+        /* abas */
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            background: #f0f4fa;
+            padding: 6px;
+            border-radius: 60px;
+        }
+
+        .tab {
+            flex: 1;
+            text-align: center;
+            padding: 14px 0;
+            font-weight: 600;
+            color: #4b5e77;
+            border-radius: 50px;
+            transition: 0.2s;
+            cursor: pointer;
+        }
+
+        .tab.active {
+            background: #ffffff;
+            color: #0066ff;
+            box-shadow: 0 4px 12px rgba(0,102,255,0.15);
+        }
+
+        /* cards */
+        .card {
+            background: #ffffff;
+            border-radius: 26px;
+            padding: 20px 16px;
+            margin-bottom: 20px;
+            border: 1px solid #eaeef4;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.02);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .card-header h2 {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #152b44;
+        }
+
+        /* valor rifa */
+        .valor-box {
+            background: #f0f5ff;
+            border-radius: 60px;
+            padding: 5px 5px 5px 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .valor-box input {
+            width: 85px;
+            border: none;
+            background: transparent;
+            font-weight: 700;
+            font-size: 1.2rem;
+            color: #1f3a68;
+            padding: 8px 0;
+        }
+
+        .valor-box input:focus {
+            outline: none;
+        }
+
+        .valor-box button {
+            background: #0066ff;
+            border: none;
+            color: white;
+            font-weight: 600;
+            padding: 10px 18px;
+            border-radius: 40px;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+
+        /* estatísticas */
+        .stats {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .stat {
+            flex: 1;
+            background: #f8fbfe;
+            border-radius: 24px;
+            padding: 14px 6px;
+            text-align: center;
+            border: 1px solid #e2e9f2;
+        }
+
+        .stat .label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: #5e728e;
+        }
+
+        .stat .value {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: #0c1f33;
+            line-height: 1.2;
+        }
+
+        /* ferramentas */
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .search {
+            flex: 2;
+            min-width: 180px;
+            background: #f2f6fc;
+            border-radius: 50px;
+            padding: 4px 4px 4px 20px;
+            display: flex;
+            align-items: center;
+            border: 1px solid #dae2ed;
+        }
+
+        .search span {
+            font-size: 1.2rem;
+            opacity: 0.5;
+            margin-right: 6px;
+        }
+
+        .search input {
+            border: none;
+            background: transparent;
+            padding: 14px 0;
+            width: 100%;
+            font-size: 1rem;
+        }
+
+        .search input:focus {
+            outline: none;
+        }
+
+        .filter-month {
+            flex: 1;
+            background: #f2f6fc;
+            border-radius: 50px;
+            padding: 0 6px 0 18px;
+            display: flex;
+            align-items: center;
+            border: 1px solid #dae2ed;
+        }
+
+        .filter-month select {
+            background: transparent;
+            border: none;
+            padding: 14px 0;
+            font-size: 1rem;
+            width: 100%;
+            font-weight: 500;
+            color: #152b44;
+        }
+
+        .filter-month select:focus {
+            outline: none;
+        }
+
+        .btn-add {
+            background: #0066ff;
+            border: none;
+            color: white;
+            font-weight: 600;
+            font-size: 1.2rem;
+            padding: 18px 24px;
+            border-radius: 60px;
+            width: 100%;
+            cursor: pointer;
+            box-shadow: 0 16px 30px -8px #0066ff80;
+            margin-bottom: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        /* lista de participantes */
+        .participant-list {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            max-height: 450px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .participant-card {
+            background: #ffffff;
+            border-radius: 28px;
+            padding: 18px 16px;
+            border: 1px solid #e9ecf1;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+        }
+
+        .part-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .part-name {
+            font-weight: 700;
+            font-size: 1.2rem;
+            color: #0e263b;
+        }
+
+        .part-number {
+            background: #132b45;
+            color: white;
+            padding: 6px 18px;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .part-details {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px 8px;
+            margin-bottom: 16px;
+            color: #3f5670;
+            font-weight: 500;
+            align-items: center;
+        }
+
+        .part-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #f0f4fa;
+            padding: 5px 16px;
+            border-radius: 40px;
+            font-size: 0.9rem;
+        }
+
+        .status-pago {
+            background: #c8f0d3;
+            color: #0e6732;
+            font-weight: 600;
+        }
+
+        .status-naopago {
+            background: #ffe8e0;
+            color: #b13e2d;
+        }
+
+        .part-date {
+            font-size: 0.85rem;
+            color: #5e718b;
+        }
+
+        .part-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            border-top: 1px dashed #dbe1e9;
+            padding-top: 16px;
+            flex-wrap: wrap;
+        }
+
+        .btn-action {
+            background: transparent;
+            border: 1.5px solid #cad2de;
+            padding: 12px 16px;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #1e3148;
+            cursor: pointer;
+            flex: 1;
+            min-width: 80px;
+        }
+
+        .btn-action.pagar {
+            background: #0066ff;
+            border-color: #0066ff;
+            color: white;
+        }
+
+        /* relatório mensal */
+        .relatorio-mensal {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .month-block {
+            background: #f9fcff;
+            border-radius: 28px;
+            padding: 16px;
+            border: 1px solid #dee7f2;
+        }
+
+        .month-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #0e263b;
+            margin-bottom: 8px;
+        }
+
+        .month-total {
+            font-size: 2rem;
+            font-weight: 800;
+            color: #0066ff;
+            margin-bottom: 12px;
+        }
+
+        .month-participants {
+            list-style: none;
+        }
+
+        .month-participants li {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #e0e8f2;
+        }
+
+        .month-participants li:last-child {
+            border-bottom: none;
+        }
+
+        /* modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,20,40,0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            z-index: 1000;
+            backdrop-filter: blur(3px);
+        }
+
+        .modal {
+            background: white;
+            border-radius: 40px;
+            max-width: 440px;
+            width: 100%;
+            padding: 30px 24px;
+            box-shadow: 0 30px 50px rgba(0,0,0,0.3);
+        }
+
+        .modal h3 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #0b1e33;
+            margin-bottom: 20px;
+        }
+
+        .modal input {
+            width: 100%;
+            padding: 18px;
+            border-radius: 30px;
+            border: 1.5px solid #d0dae8;
+            font-size: 1rem;
+            margin-bottom: 16px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .modal-actions button {
+            flex: 1;
+            padding: 16px;
+            border-radius: 60px;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background: #0066ff;
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #1e3148;
+        }
+
+        .btn-fechar {
+            background: #1a314a;
+            color: white;
+            border: none;
+            padding: 18px;
+            border-radius: 60px;
+            width: 100%;
+            font-weight: 700;
+            font-size: 1.1rem;
+            cursor: pointer;
+        }
+
+        .empty-message {
+            text-align: center;
+            padding: 40px 0;
+            color: #7d8fa4;
+            font-weight: 500;
+        }
+
+        footer {
+            font-size: 0.75rem;
+            color: #a0b2c7;
+            text-align: center;
+            margin-top: 24px;
+        }
+    </style>
+</head>
+<body>
+<div class="app">
+    <h1>🎟️ Rifa<span class="badge">mobile</span></h1>
+
+    <!-- Abas -->
+    <div class="tabs">
+        <div class="tab active" data-tab="participantes">Participantes</div>
+        <div class="tab" data-tab="relatorio">Relatório Mensal</div>
+    </div>
+
+    <!-- Conteúdo participantes (ativo por padrão) -->
+    <div id="tabParticipantes" style="display: block;">
+        <!-- Config valor da rifa -->
+        <div class="card">
+            <div class="card-header">
+                <h2>💰 Valor do número</h2>
+                <div class="valor-box">
+                    <span>R$</span>
+                    <input type="number" id="valorRifaInput" step="0.01" min="0.01" value="5.00">
+                    <button id="btnSalvarValor">Salvar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Estatísticas -->
+        <div class="stats">
+            <div class="stat">
+                <div class="label">participantes</div>
+                <div class="value" id="totalParticipantes">0</div>
+            </div>
+            <div class="stat">
+                <div class="label">arrecadado</div>
+                <div class="value" id="totalArrecadado">R$0</div>
+            </div>
+            <div class="stat" style="background:#e1ebff;">
+                <div class="label" id="monthLabel">mês atual</div>
+                <div class="value" id="totalMes">R$0</div>
+            </div>
+        </div>
+
+        <!-- Ferramentas de busca e filtro -->
+        <div class="toolbar">
+            <div class="search">
+                <span>🔍</span>
+                <input type="text" id="searchInput" placeholder="Buscar...">
+            </div>
+            <div class="filter-month">
+                <select id="monthFilter">
+                    <option value="todos">Todos os meses</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Botão adicionar -->
+        <button class="btn-add" id="btnAdicionar">➕ Novo participante</button>
+
+        <!-- Lista de participantes -->
+        <div class="participant-list" id="participantList">
+            <div class="empty-message">Nenhum participante cadastrado.</div>
+        </div>
+    </div>
+
+    <!-- Conteúdo relatório mensal (invisível inicialmente) -->
+    <div id="tabRelatorio" style="display: none;">
+        <div class="card">
+            <h2>📆 Relatório por mês</h2>
+            <div id="relatorioContainer" class="relatorio-mensal">
+                <!-- será preenchido via js -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de recibo -->
+    <div id="reciboModal" class="modal-overlay">
+        <div class="modal">
+            <h3>🧾 Recibo</h3>
+            <div id="reciboContent" class="recibo-content" style="background:#f4f8ff; border-radius:28px; padding:22px; margin:20px 0;"></div>
+            <button class="btn-fechar" id="fecharModal">Fechar</button>
+        </div>
+    </div>
+
+    <!-- Modal de participante (novo/editar) -->
+    <div id="participanteModal" class="modal-overlay">
+        <div class="modal">
+            <h3 id="modalTitle">➕ Novo participante</h3>
+            <input type="text" id="participanteNome" placeholder="Nome completo">
+            <input type="number" id="participanteNumero" placeholder="Número (deixe em branco para aleatório)">
+            <p style="color:#6b7f9a; margin-bottom:16px;">Se deixar em branco, será gerado automaticamente.</p>
+            <div class="modal-actions">
+                <button class="btn-primary" id="salvarParticipante">Salvar</button>
+                <button class="btn-secondary" id="cancelarParticipante">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <footer>Deslize para mais • Dados salvos no dispositivo</footer>
+</div>
+
+<script>
+    (async function() {
+        // --- CONFIGURAÇÃO DO INDEXEDDB ---
+        const db = new Dexie('RifaDB');
+        db.version(1).stores({
+            participantes: 'id, nome, numero, pago, dataPagamento',
+            config: 'chave'
+        });
+
+        // --- ESTADO ---
+        let participantes = [];
+        let valorRifa = 5.00;
+        let filtroMes = 'todos';
+        let termoBusca = '';
+        let abaAtiva = 'participantes'; // 'participantes' ou 'relatorio'
+
+        // --- ELEMENTOS DOM ---
+        const valorInput = document.getElementById('valorRifaInput');
+        const btnSalvarValor = document.getElementById('btnSalvarValor');
+        const totalParticipantesSpan = document.getElementById('totalParticipantes');
+        const totalArrecadadoSpan = document.getElementById('totalArrecadado');
+        const totalMesSpan = document.getElementById('totalMes');
+        const monthLabel = document.getElementById('monthLabel');
+        const searchInput = document.getElementById('searchInput');
+        const monthSelect = document.getElementById('monthFilter');
+        const participantListDiv = document.getElementById('participantList');
+        const btnAdicionar = document.getElementById('btnAdicionar');
+        const reciboModal = document.getElementById('reciboModal');
+        const reciboContent = document.getElementById('reciboContent');
+        const fecharModal = document.getElementById('fecharModal');
+        const participanteModal = document.getElementById('participanteModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const participanteNomeInput = document.getElementById('participanteNome');
+        const participanteNumeroInput = document.getElementById('participanteNumero');
+        const salvarParticipanteBtn = document.getElementById('salvarParticipante');
+        const cancelarParticipanteBtn = document.getElementById('cancelarParticipante');
+        const tabParticipantes = document.getElementById('tabParticipantes');
+        const tabRelatorio = document.getElementById('tabRelatorio');
+        const relatorioContainer = document.getElementById('relatorioContainer');
+        const tabs = document.querySelectorAll('.tab');
+
+        let participanteEditandoId = null; // null = novo
+
+        // --- CARREGAR CONFIGURAÇÃO ---
+        async function carregarConfig() {
+            const config = await db.config.get('valorRifa');
+            if (config) {
+                valorRifa = config.valor;
+                valorInput.value = valorRifa.toFixed(2);
+            } else {
+                await db.config.put({ chave: 'valorRifa', valor: valorRifa });
+            }
+        }
+
+        // --- CARREGAR PARTICIPANTES ---
+        async function carregarParticipantes() {
+            participantes = await db.participantes.toArray();
+            aplicarFiltrosEAtualizar();
+        }
+
+        // --- GERAR NÚMERO ÚNICO (com base nos participantes atuais) ---
+        async function gerarNumeroUnico() {
+            const numerosExistentes = new Set(participantes.map(p => p.numero));
+            for (let tentativa = 0; tentativa < 1000; tentativa++) {
+                const num = Math.floor(Math.random() * 999) + 1;
+                if (!numerosExistentes.has(num)) return num;
+            }
+            for (let i = 1000; i <= 9999; i++) {
+                if (!numerosExistentes.has(i)) return i;
+            }
+            return Date.now() % 10000;
+        }
+
+        // --- VALIDAR NÚMERO ÚNICO (para edição) ---
+        async function numeroDisponivel(numero, ignorarId = null) {
+            const existente = participantes.find(p => p.numero === numero && p.id !== ignorarId);
+            return !existente;
+        }
+
+        // --- SALVAR PARTICIPANTE (novo ou edição) ---
+        async function salvarParticipante(nome, numeroInput, idExistente = null) {
+            if (!nome.trim()) {
+                alert('Digite o nome');
+                return false;
+            }
+
+            let numero = numeroInput ? parseInt(numeroInput) : null;
+            if (numero && isNaN(numero)) {
+                alert('Número inválido');
+                return false;
+            }
+
+            if (idExistente) {
+                // edição
+                const original = participantes.find(p => p.id === idExistente);
+                if (!original) return false;
+
+                // Se número foi alterado
+                if (numero && numero !== original.numero) {
+                    if (!(await numeroDisponivel(numero, idExistente))) {
+                        alert('Este número já está em uso. Escolha outro.');
+                        return false;
+                    }
+                } else if (!numero) {
+                    // manteve o original
+                    numero = original.numero;
+                }
+
+                await db.participantes.update(idExistente, {
+                    nome: nome,
+                    numero: numero
+                });
+            } else {
+                // novo
+                if (!numero) {
+                    numero = await gerarNumeroUnico();
+                } else {
+                    if (!(await numeroDisponivel(numero))) {
+                        alert('Número já existe. Escolha outro ou deixe em branco para gerar automático.');
+                        return false;
+                    }
+                }
+
+                await db.participantes.add({
+                    id: Date.now().toString() + Math.random().toString(36).substring(2),
+                    nome: nome,
+                    numero: numero,
+                    pago: false,
+                    dataPagamento: null
+                });
+            }
+            return true;
+        }
+
+        // --- MARCAR COMO PAGO ---
+        async function marcarPago(id) {
+            const p = await db.participantes.get(id);
+            if (!p || p.pago) return;
+            await db.participantes.update(id, {
+                pago: true,
+                dataPagamento: new Date().toISOString()
+            });
+            await carregarParticipantes();
+            if (abaAtiva === 'relatorio') renderizarRelatorio();
+        }
+
+        // --- EXCLUIR PARTICIPANTE ---
+        async function excluirParticipante(id) {
+            if (confirm('Remover este participante?')) {
+                await db.participantes.delete(id);
+                await carregarParticipantes();
+                if (abaAtiva === 'relatorio') renderizarRelatorio();
+            }
+        }
+
+        // --- EXIBIR RECIBO ---
+        function exibirRecibo(p) {
+            const data = p.dataPagamento ? new Date(p.dataPagamento).toLocaleString('pt-BR') : '—';
+            reciboContent.innerHTML = `
+                <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed #b1c6df;"><strong>Participante</strong> <span>${p.nome}</span></div>
+                <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed #b1c6df;"><strong>Número</strong> <span>#${p.numero}</span></div>
+                <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed #b1c6df;"><strong>Valor pago</strong> <span>R$ ${valorRifa.toFixed(2)}</span></div>
+                <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed #b1c6df;"><strong>Data</strong> <span>${data}</span></div>
+                <div style="display:flex; justify-content:space-between; padding:8px 0;"><strong>Recibo</strong> <span>RIFA-${p.numero}</span></div>
+            `;
+            reciboModal.style.display = 'flex';
+        }
+
+        // --- ATUALIZAR RESUMO E FILTROS ---
+        function aplicarFiltrosEAtualizar() {
+            if (abaAtiva === 'participantes') {
+                let listaFiltrada = participantes;
+                if (termoBusca.trim() !== '') {
+                    const termo = termoBusca.toLowerCase();
+                    listaFiltrada = listaFiltrada.filter(p => p.nome.toLowerCase().includes(termo));
+                }
+                if (filtroMes !== 'todos') {
+                    const [ano, mes] = filtroMes.split('-').map(Number);
+                    listaFiltrada = listaFiltrada.filter(p => {
+                        if (!p.pago || !p.dataPagamento) return false;
+                        const d = new Date(p.dataPagamento);
+                        return d.getFullYear() === ano && (d.getMonth() + 1) === mes;
+                    });
+                }
+                renderizarLista(listaFiltrada);
+            }
+            atualizarResumo();
+            preencherSelectMeses();
+        }
+
+        // --- RENDERIZAR LISTA DE PARTICIPANTES ---
+        function renderizarLista(lista) {
+            if (lista.length === 0) {
+                participantListDiv.innerHTML = '<div class="empty-message">Nenhum participante encontrado.</div>';
+                return;
+            }
+
+            let html = '';
+            lista.sort((a,b) => a.numero - b.numero).forEach(p => {
+                const statusClass = p.pago ? 'status-pago' : 'status-naopago';
+                const statusText = p.pago ? 'PAGO' : 'NÃO PAGO';
+                const dataStr = p.dataPagamento ? new Date(p.dataPagamento).toLocaleDateString('pt-BR') : '—';
+                html += `
+                    <div class="participant-card" data-id="${p.id}">
+                        <div class="part-row">
+                            <span class="part-name">${p.nome}</span>
+                            <span class="part-number">#${p.numero}</span>
+                        </div>
+                        <div class="part-details">
+                            <span class="part-status ${statusClass}">${statusText}</span>
+                            <span class="part-date">📅 ${dataStr}</span>
+                        </div>
+                        <div class="part-actions">
+                            ${!p.pago ? `<button class="btn-action pagar" data-id="${p.id}">💵 Pagar</button>` : ''}
+                            <button class="btn-action recibo" data-id="${p.id}" ${p.pago ? '' : 'disabled style="opacity:0.4;"'}>🧾 Recibo</button>
+                            <button class="btn-action editar" data-id="${p.id}">✏️ Editar</button>
+                            <button class="btn-action excluir" data-id="${p.id}">🗑️ Excluir</button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            participantListDiv.innerHTML = html;
+
+            document.querySelectorAll('.btn-action.pagar').forEach(btn => {
+                btn.addEventListener('click', (e) => { e.stopPropagation(); marcarPago(btn.dataset.id); });
+            });
+            document.querySelectorAll('.btn-action.recibo').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const id = btn.dataset.id;
+                    const p = participantes.find(x => x.id === id);
+                    if (p && p.pago) exibirRecibo(p);
+                });
+            });
+            document.querySelectorAll('.btn-action.editar').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const id = btn.dataset.id;
+                    const p = participantes.find(x => x.id === id);
+                    if (p) abrirModalEditar(p);
+                });
+            });
+            document.querySelectorAll('.btn-action.excluir').forEach(btn => {
+                btn.addEventListener('click', (e) => { e.stopPropagation(); excluirParticipante(btn.dataset.id); });
+            });
+        }
+
+        // --- ATUALIZAR RESUMO FINANCEIRO ---
+        function atualizarResumo() {
+            const totalPart = participantes.length;
+            const totalPago = participantes.filter(p => p.pago).length;
+            const arrecadado = totalPago * valorRifa;
+            totalParticipantesSpan.innerText = totalPart;
+            totalArrecadadoSpan.innerText = `R$ ${arrecadado.toFixed(2)}`;
+
+            // Faturamento do mês filtrado ou atual
+            let listaMes = participantes;
+            if (filtroMes !== 'todos') {
+                const [ano, mes] = filtroMes.split('-').map(Number);
+                listaMes = participantes.filter(p => p.pago && p.dataPagamento && new Date(p.dataPagamento).getFullYear() === ano && (new Date(p.dataPagamento).getMonth() + 1) === mes);
+                monthLabel.innerText = `mês ${mes}/${ano}`;
+            } else {
+                const hoje = new Date();
+                const mesAtual = hoje.getMonth() + 1;
+                const anoAtual = hoje.getFullYear();
+                listaMes = participantes.filter(p => p.pago && p.dataPagamento && new Date(p.dataPagamento).getFullYear() === anoAtual && (new Date(p.dataPagamento).getMonth() + 1) === mesAtual);
+                monthLabel.innerText = 'mês atual';
+            }
+            totalMesSpan.innerText = `R$ ${(listaMes.filter(p => p.pago).length * valorRifa).toFixed(2)}`;
+        }
+
+        // --- PREENCHER SELECT DE MESES ---
+        function preencherSelectMeses() {
+            const mesesSet = new Set();
+            participantes.forEach(p => {
+                if (p.pago && p.dataPagamento) {
+                    const d = new Date(p.dataPagamento);
+                    mesesSet.add(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
+                }
+            });
+            const mesesArray = Array.from(mesesSet).sort().reverse();
+            let options = '<option value="todos">Todos os meses</option>';
+            mesesArray.forEach(key => {
+                const [ano, mes] = key.split('-');
+                const nomeMes = new Date(ano, mes-1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+                options += `<option value="${key}">${nomeMes}</option>`;
+            });
+            monthSelect.innerHTML = options;
+            if (filtroMes !== 'todos' && mesesArray.includes(filtroMes)) {
+                monthSelect.value = filtroMes;
+            } else {
+                monthSelect.value = 'todos';
+                filtroMes = 'todos';
+            }
+        }
+
+        // --- RENDERIZAR RELATÓRIO MENSAL ---
+        function renderizarRelatorio() {
+            // Agrupar pagamentos por mês
+            const mesesMap = new Map();
+            participantes.forEach(p => {
+                if (p.pago && p.dataPagamento) {
+                    const d = new Date(p.dataPagamento);
+                    const chave = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+                    if (!mesesMap.has(chave)) {
+                        mesesMap.set(chave, {
+                            ano: d.getFullYear(),
+                            mes: d.getMonth()+1,
+                            participantes: [],
+                            total: 0
+                        });
+                    }
+                    mesesMap.get(chave).participantes.push(p);
+                    mesesMap.get(chave).total += valorRifa;
+                }
+            });
+
+            if (mesesMap.size === 0) {
+                relatorioContainer.innerHTML = '<div class="empty-message">Nenhum pagamento registrado.</div>';
+                return;
+            }
+
+            // Ordenar meses do mais recente para o mais antigo
+            const mesesOrdenados = Array.from(mesesMap.entries()).sort((a,b) => b[0].localeCompare(a[0]));
+
+            let html = '';
+            for (let [chave, dados] of mesesOrdenados) {
+                const nomeMes = new Date(dados.ano, dados.mes-1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+                html += `
+                    <div class="month-block">
+                        <div class="month-title">${nomeMes}</div>
+                        <div class="month-total">R$ ${dados.total.toFixed(2)}</div>
+                        <ul class="month-participants">
+                `;
+                dados.participantes.sort((a,b) => a.numero - b.numero).forEach(p => {
+                    html += `<li><span>#${p.numero} - ${p.nome}</span> <span>R$ ${valorRifa.toFixed(2)}</span></li>`;
+                });
+                html += `</ul></div>`;
+            }
+            relatorioContainer.innerHTML = html;
+        }
+
+        // --- ABRIR MODAL DE EDIÇÃO ---
+        function abrirModalEditar(p) {
+            participanteEditandoId = p.id;
+            modalTitle.innerText = '✏️ Editar participante';
+            participanteNomeInput.value = p.nome;
+            participanteNumeroInput.value = p.numero;
+            participanteModal.style.display = 'flex';
+        }
+
+        // --- FECHAR MODAIS ---
+        fecharModal.addEventListener('click', () => reciboModal.style.display = 'none');
+        window.addEventListener('click', (e) => {
+            if (e.target === reciboModal) reciboModal.style.display = 'none';
+            if (e.target === participanteModal) participanteModal.style.display = 'none';
+        });
+
+        // --- TABS ---
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                const target = tab.dataset.tab;
+                abaAtiva = target;
+                if (target === 'participantes') {
+                    tabParticipantes.style.display = 'block';
+                    tabRelatorio.style.display = 'none';
+                    aplicarFiltrosEAtualizar(); // atualiza lista com filtros atuais
+                } else {
+                    tabParticipantes.style.display = 'none';
+                    tabRelatorio.style.display = 'block';
+                    renderizarRelatorio();
+                }
+            });
+        });
+
+        // --- BOTÃO NOVO PARTICIPANTE ---
+        btnAdicionar.addEventListener('click', () => {
+            participanteEditandoId = null;
+            modalTitle.innerText = '➕ Novo participante';
+            participanteNomeInput.value = '';
+            participanteNumeroInput.value = '';
+            participanteModal.style.display = 'flex';
+        });
+
+        // --- SALVAR PARTICIPANTE (MODAL) ---
+        salvarParticipanteBtn.addEventListener('click', async () => {
+            const nome = participanteNomeInput.value.trim();
+            const numero = participanteNumeroInput.value.trim() ? parseInt(participanteNumeroInput.value) : null;
+            if (await salvarParticipante(nome, numero, participanteEditandoId)) {
+                participanteModal.style.display = 'none';
+                await carregarParticipantes();
+                if (abaAtiva === 'relatorio') renderizarRelatorio();
+            }
+        });
+
+        cancelarParticipanteBtn.addEventListener('click', () => {
+            participanteModal.style.display = 'none';
+        });
+
+        // --- SALVAR VALOR DA RIFA ---
+        btnSalvarValor.addEventListener('click', async () => {
+            const novoValor = parseFloat(valorInput.value);
+            if (isNaN(novoValor) || novoValor <= 0) return alert('Valor inválido');
+            valorRifa = novoValor;
+            await db.config.put({ chave: 'valorRifa', valor: novoValor });
+            atualizarResumo();
+            if (abaAtiva === 'relatorio') renderizarRelatorio();
+        });
+
+        // --- FILTROS ---
+        searchInput.addEventListener('input', (e) => {
+            termoBusca = e.target.value;
+            aplicarFiltrosEAtualizar();
+        });
+
+        monthSelect.addEventListener('change', (e) => {
+            filtroMes = e.target.value;
+            aplicarFiltrosEAtualizar();
+            if (abaAtiva === 'relatorio') renderizarRelatorio(); // relatório não usa filtro de mês, mas atualizamos resumo
+        });
+
+        // --- INICIALIZAÇÃO ---
+        await carregarConfig();
+        await carregarParticipantes();
+    })();
+</script>
+</body>
+</html>
