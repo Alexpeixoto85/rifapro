@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>Rifa Pro · Gestão simplificada</title>
+    <title>Ação Pro · Gestão simplificada</title>
     <!-- Dexie (IndexedDB) -->
     <script src="https://unpkg.com/dexie@3.2.3/dist/dexie.js"></script>
     <!-- jsPDF para gerar PDF -->
@@ -390,6 +390,34 @@
             border-bottom: none;
         }
 
+        /* Botões de exportação de relatório */
+        .report-actions {
+            display: flex;
+            gap: 8px;
+            margin: 20px 0 10px;
+            flex-wrap: wrap;
+        }
+        .btn-report {
+            flex: 1;
+            background: #ffffff;
+            border: 1.5px solid #1e3b5c;
+            color: #1e3b5c;
+            font-weight: 600;
+            padding: 14px 8px;
+            border-radius: 60px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: 0.2s;
+        }
+        .btn-report:hover {
+            background: #1e3b5c;
+            color: white;
+        }
+
         /* MODAIS */
         .modal-overlay {
             position: fixed;
@@ -648,7 +676,7 @@
 <body>
 <div class="app">
     <div class="header-flex">
-        <h1>🎟️ Rifa<span class="badge">PRO- 3 ANO SANTISSIMA</span></h1>
+        <h1>🎟️ Ação<span class="badge">PRO</span></h1>
         <button class="gear-btn" id="gearBtn" title="Configurações e backup">⚙️</button>
     </div>
 
@@ -697,6 +725,11 @@
         <div class="card" style="border: none; padding:0;">
             <h2 style="margin-bottom:16px;">📆 Relatório mensal</h2>
             <div id="relatorioContainer" class="relatorio-mensal"></div>
+            <!-- Botões de exportação de PDF -->
+            <div class="report-actions">
+                <button class="btn-report" id="exportMensalPDF">📄 Exportar mês atual</button>
+                <button class="btn-report" id="exportCompletoPDF">📊 Exportar completo</button>
+            </div>
         </div>
     </div>
 
@@ -704,6 +737,10 @@
     <div id="configModal" class="modal-overlay">
         <div class="modal">
             <h3>⚙️ Configurações</h3>
+            <div class="config-row">
+                <label>Nome da Ação</label>
+                <input type="text" id="nomeAcaoInput" placeholder="Ex: Ação Pro 3 Ano Santíssima" value="Ação Pro 3 Ano Santíssima">
+            </div>
             <div class="config-row">
                 <label>Prêmio</label>
                 <input type="text" id="premioInput" placeholder="Ex: Smartphone" value="Smartphone">
@@ -713,8 +750,8 @@
                 <input type="date" id="dataSorteioInput">
             </div>
             <div class="config-row">
-                <label>Valor da rifa (R$)</label>
-                <input type="number" id="valorRifaInput" step="0.01" min="0.01" value="5.00">
+                <label>Valor da ação (R$)</label>
+                <input type="number" id="valorAcaoInput" step="0.01" min="0.01" value="5.00">
             </div>
             <button class="btn-primary" id="btnSalvarConfig" style="width:100%; margin: 8px 0 20px;">Salvar alterações</button>
 
@@ -761,31 +798,33 @@
         </div>
     </div>
 
-    <footer>Recibo único por grupo • Gestão simplificada</footer>
+    <footer>Recibo único por grupo • Relatórios em PDF</footer>
 </div>
 
 <script>
     (async function() {
         const { jsPDF } = window.jspdf;
 
-        const db = new Dexie('RifaProDB');
+        const db = new Dexie('AcaoProDB');
         db.version(2).stores({
             participantes: 'id, nome, numero, pago, dataPagamento, groupId',
             config: 'chave'
         });
 
         let participantes = [];
-        let valorRifa = 5.00;
+        let valorAcao = 5.00;
         let premio = 'Smartphone';
         let dataSorteio = '';
+        let nomeAcao = 'Ação Pro 3 Ano Santíssima';
         let filtroMes = 'todos';
         let termoBusca = '';
         let abaAtiva = 'participantes';
 
         // Elementos DOM
+        const nomeAcaoInput = document.getElementById('nomeAcaoInput');
         const premioInput = document.getElementById('premioInput');
         const dataSorteioInput = document.getElementById('dataSorteioInput');
-        const valorInput = document.getElementById('valorRifaInput');
+        const valorInput = document.getElementById('valorAcaoInput');
         const btnSalvarConfig = document.getElementById('btnSalvarConfig');
         const totalNumerosSpan = document.getElementById('totalNumeros');
         const totalArrecadadoSpan = document.getElementById('totalArrecadado');
@@ -815,6 +854,8 @@
         const gearBtn = document.getElementById('gearBtn');
         const configModal = document.getElementById('configModal');
         const fecharConfigModal = document.getElementById('fecharConfigModal');
+        const exportMensalPDF = document.getElementById('exportMensalPDF');
+        const exportCompletoPDF = document.getElementById('exportCompletoPDF');
 
         let reciboAtual = null; // guarda o grupo para PDF
 
@@ -831,9 +872,9 @@
 
         // Carregar configurações
         async function carregarConfig() {
-            const configValor = await db.config.get('valorRifa');
-            if (configValor) valorRifa = configValor.valor;
-            else await db.config.put({ chave: 'valorRifa', valor: valorRifa });
+            const configValor = await db.config.get('valorAcao');
+            if (configValor) valorAcao = configValor.valor;
+            else await db.config.put({ chave: 'valorAcao', valor: valorAcao });
 
             const configPremio = await db.config.get('premio');
             if (configPremio) premio = configPremio.valor;
@@ -848,9 +889,14 @@
                 await db.config.put({ chave: 'dataSorteio', valor: dataSorteio });
             }
 
+            const configNomeAcao = await db.config.get('nomeAcao');
+            if (configNomeAcao) nomeAcao = configNomeAcao.valor;
+            else await db.config.put({ chave: 'nomeAcao', valor: nomeAcao });
+
+            nomeAcaoInput.value = nomeAcao;
             premioInput.value = premio;
             dataSorteioInput.value = dataSorteio;
-            valorInput.value = valorRifa.toFixed(2);
+            valorInput.value = valorAcao.toFixed(2);
         }
 
         // Função para gerar número de recibo de 4 dígitos (1000-9999)
@@ -977,7 +1023,7 @@
             }
         }
 
-        // RECIBO MODERNO (HTML) com número de 4 dígitos
+        // RECIBO MODERNO (HTML) com número de 4 dígitos e nome da ação
         function exibirReciboGrupo(groupId) {
             const grupo = participantes.filter(p => p.groupId === groupId);
             if (grupo.length === 0) return;
@@ -991,7 +1037,7 @@
             const numeros = grupo.map(p => p.numero).sort((a,b) => a-b);
             const dataPagamento = grupo[0].dataPagamento ? new Date(grupo[0].dataPagamento).toLocaleString('pt-BR') : '—';
             const dataSorteioFormatada = dataSorteio ? new Date(dataSorteio).toLocaleDateString('pt-BR') : '—';
-            const valorTotal = grupo.length * valorRifa;
+            const valorTotal = grupo.length * valorAcao;
             const numerosStr = numeros.map(n => `#${n}`).join(', ');
             const reciboNum = grupo[0].reciboNum || 0; // fallback
 
@@ -1001,10 +1047,11 @@
                     <span class="receipt-badge">#${reciboNum.toString().padStart(4,'0')}</span>
                 </div>
                 <div class="receipt-grid">
+                    <div class="receipt-item"><span class="label">Ação</span><div class="value">${nomeAcao}</div></div>
                     <div class="receipt-item"><span class="label">Participante</span><div class="value">${nome}</div></div>
                     <div class="receipt-item"><span class="label">Números</span><div class="value">${numerosStr}</div></div>
                     <div class="receipt-item"><span class="label">Quantidade</span><div class="value">${grupo.length}</div></div>
-                    <div class="receipt-item"><span class="label">Valor unit.</span><div class="value">R$ ${valorRifa.toFixed(2)}</div></div>
+                    <div class="receipt-item"><span class="label">Valor unit.</span><div class="value">R$ ${valorAcao.toFixed(2)}</div></div>
                     <div class="receipt-item"><span class="label">Prêmio</span><div class="value">${premio}</div></div>
                     <div class="receipt-item"><span class="label">Sorteio</span><div class="value">${dataSorteioFormatada}</div></div>
                     <div class="receipt-item"><span class="label">Pagamento</span><div class="value">${dataPagamento}</div></div>
@@ -1062,54 +1109,59 @@
             const colWidth = (contentWidth - 20) / 2;
 
             doc.setFont(undefined, 'bold');
-            doc.text('Participante:', margin, yStart);
+            doc.text('Ação:', margin, yStart);
             doc.setFont(undefined, 'normal');
-            doc.text(grupo[0].nome, margin + 40, yStart);
+            doc.text(nomeAcao, margin + 30, yStart, { maxWidth: contentWidth - 40 });
 
             doc.setFont(undefined, 'bold');
-            doc.text('Números:', margin, yStart + lineHeight);
+            doc.text('Participante:', margin, yStart + lineHeight);
+            doc.setFont(undefined, 'normal');
+            doc.text(grupo[0].nome, margin + 50, yStart + lineHeight, { maxWidth: contentWidth - 70 });
+
+            doc.setFont(undefined, 'bold');
+            doc.text('Números:', margin, yStart + 2*lineHeight);
             doc.setFont(undefined, 'normal');
             const numerosStr = grupo.map(p => p.numero).sort((a,b) => a-b).join(', ');
-            doc.text(numerosStr, margin + 40, yStart + lineHeight);
+            doc.text(numerosStr, margin + 40, yStart + 2*lineHeight, { maxWidth: contentWidth - 60 });
 
-            // Primeira coluna
+            // Primeira coluna (continua)
             doc.setFont(undefined, 'bold');
-            doc.text('Quantidade:', margin, yStart + 2*lineHeight);
+            doc.text('Quantidade:', margin, yStart + 3*lineHeight);
             doc.setFont(undefined, 'normal');
-            doc.text(grupo.length.toString(), margin + 40, yStart + 2*lineHeight);
+            doc.text(grupo.length.toString(), margin + 50, yStart + 3*lineHeight);
 
             doc.setFont(undefined, 'bold');
-            doc.text('Valor unit.:', margin, yStart + 3*lineHeight);
+            doc.text('Valor unit.:', margin, yStart + 4*lineHeight);
             doc.setFont(undefined, 'normal');
-            doc.text(`R$ ${valorRifa.toFixed(2)}`, margin + 40, yStart + 3*lineHeight);
+            doc.text(`R$ ${valorAcao.toFixed(2)}`, margin + 50, yStart + 4*lineHeight);
 
             // Segunda coluna
             const x2 = margin + colWidth + 10;
             doc.setFont(undefined, 'bold');
-            doc.text('Prêmio:', x2, yStart + 2*lineHeight);
+            doc.text('Prêmio:', x2, yStart + 3*lineHeight);
             doc.setFont(undefined, 'normal');
-            doc.text(premio, x2 + 30, yStart + 2*lineHeight, { maxWidth: colWidth - 30 });
+            doc.text(premio, x2 + 30, yStart + 3*lineHeight, { maxWidth: colWidth - 30 });
 
             doc.setFont(undefined, 'bold');
-            doc.text('Sorteio:', x2, yStart + 3*lineHeight);
+            doc.text('Sorteio:', x2, yStart + 4*lineHeight);
             doc.setFont(undefined, 'normal');
             const dataSorteioFormatada = dataSorteio ? new Date(dataSorteio).toLocaleDateString('pt-BR') : '—';
-            doc.text(dataSorteioFormatada, x2 + 30, yStart + 3*lineHeight);
+            doc.text(dataSorteioFormatada, x2 + 30, yStart + 4*lineHeight);
 
             doc.setFont(undefined, 'bold');
-            doc.text('Pagamento:', x2, yStart + 4*lineHeight);
+            doc.text('Pagamento:', x2, yStart + 5*lineHeight);
             doc.setFont(undefined, 'normal');
             const dataPagamento = grupo[0].dataPagamento ? new Date(grupo[0].dataPagamento).toLocaleString('pt-BR') : '—';
-            doc.text(dataPagamento, x2 + 30, yStart + 4*lineHeight, { maxWidth: colWidth - 30 });
+            doc.text(dataPagamento, x2 + 30, yStart + 5*lineHeight, { maxWidth: colWidth - 30 });
 
             // Linha divisória
             doc.setDrawColor(...hexToRgb(azulEscuro));
             doc.setLineWidth(0.5);
-            doc.line(margin, yStart + 5*lineHeight + 2, pageWidth - margin, yStart + 5*lineHeight + 2);
+            doc.line(margin, yStart + 6*lineHeight + 2, pageWidth - margin, yStart + 6*lineHeight + 2);
 
             // Total em destaque
-            const totalY = yStart + 6*lineHeight;
-            const valorTotal = grupo.length * valorRifa;
+            const totalY = yStart + 7*lineHeight;
+            const valorTotal = grupo.length * valorAcao;
             doc.setFillColor(...hexToRgb(azulClaro));
             doc.roundedRect(margin, totalY - 4, contentWidth, 20, 3, 3, 'F');
             doc.setTextColor(...hexToRgb(textoEscuro));
@@ -1121,14 +1173,241 @@
             // Rodapé
             doc.setFontSize(8);
             doc.setTextColor(...hexToRgb(textoMedio));
-            doc.text('Documento gerado por Rifa Pro', pageWidth / 2, 280, { align: 'center' });
+            doc.text('Documento gerado por Ação Pro', pageWidth / 2, 280, { align: 'center' });
 
             doc.save(`recibo_${grupo[0].nome.replace(/\s/g,'_')}_${reciboNum}.pdf`);
         }
 
+        // Função para gerar PDF do relatório mensal (mês atual ou selecionado)
+        function gerarPDFRelatorioMensal() {
+            const paidParticipants = participantes.filter(p => p.pago && p.dataPagamento);
+            if (paidParticipants.length === 0) {
+                alert('Nenhum pagamento registrado para gerar relatório.');
+                return;
+            }
+
+            // Determinar mês atual ou o selecionado no filtro
+            let anoMesAlvo;
+            if (filtroMes !== 'todos') {
+                anoMesAlvo = filtroMes; // formato "YYYY-MM"
+            } else {
+                const hoje = new Date();
+                anoMesAlvo = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
+            }
+
+            const [ano, mes] = anoMesAlvo.split('-').map(Number);
+            const participantesMes = paidParticipants.filter(p => {
+                const d = new Date(p.dataPagamento);
+                return d.getFullYear() === ano && (d.getMonth()+1) === mes;
+            });
+
+            if (participantesMes.length === 0) {
+                alert('Nenhum pagamento no mês selecionado.');
+                return;
+            }
+
+            const totalMes = participantesMes.length * valorAcao;
+            const nomeMes = new Date(ano, mes-1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
+            const doc = new jsPDF();
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const margin = 20;
+            const contentWidth = pageWidth - 2 * margin;
+
+            const azulEscuro = '#1e3b5c';
+            const azulClaro = '#e9eff9';
+            const textoEscuro = '#1a2b3c';
+            const textoMedio = '#5f748e';
+
+            function hexToRgb(hex) {
+                const r = parseInt(hex.slice(1,3), 16);
+                const g = parseInt(hex.slice(3,5), 16);
+                const b = parseInt(hex.slice(5,7), 16);
+                return [r, g, b];
+            }
+
+            // Cabeçalho
+            doc.setFillColor(...hexToRgb(azulEscuro));
+            doc.rect(margin, 20, contentWidth, 18, 'F');
+            doc.setTextColor(255,255,255);
+            doc.setFontSize(16);
+            doc.setFont(undefined, 'bold');
+            doc.text('RELATÓRIO MENSAL', pageWidth / 2, 32, { align: 'center' });
+
+            // Nome da ação
+            doc.setFontSize(10);
+            doc.setTextColor(255,255,255);
+            doc.text(nomeAcao, pageWidth - margin - 10, 32, { align: 'right' });
+
+            // Mês
+            doc.setFontSize(12);
+            doc.setTextColor(...hexToRgb(textoEscuro));
+            doc.setFont(undefined, 'bold');
+            doc.text(`Mês: ${nomeMes}`, margin, 50);
+
+            // Tabela de participantes
+            let y = 70;
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(...hexToRgb(azulEscuro));
+            doc.text('Nº', margin, y);
+            doc.text('Participante', margin + 30, y);
+            doc.text('Valor', pageWidth - margin - 30, y, { align: 'right' });
+
+            doc.setDrawColor(...hexToRgb(azulEscuro));
+            doc.setLineWidth(0.3);
+            doc.line(margin, y + 2, pageWidth - margin, y + 2);
+
+            y += 8;
+            doc.setFont(undefined, 'normal');
+            doc.setTextColor(...hexToRgb(textoEscuro));
+
+            participantesMes.sort((a,b) => a.numero - b.numero).forEach(p => {
+                if (y > 250) {
+                    doc.addPage();
+                    y = 20;
+                }
+                doc.text(p.numero.toString(), margin, y);
+                doc.text(p.nome, margin + 30, y, { maxWidth: contentWidth - 90 });
+                doc.text(`R$ ${valorAcao.toFixed(2)}`, pageWidth - margin - 30, y, { align: 'right' });
+                y += 8;
+            });
+
+            // Linha de total
+            y += 4;
+            doc.setDrawColor(...hexToRgb(azulEscuro));
+            doc.setLineWidth(0.5);
+            doc.line(margin, y - 2, pageWidth - margin, y - 2);
+
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(...hexToRgb(textoEscuro));
+            doc.text('TOTAL', margin, y + 4);
+            doc.text(`R$ ${totalMes.toFixed(2)}`, pageWidth - margin - 30, y + 4, { align: 'right' });
+
+            // Rodapé
+            doc.setFontSize(8);
+            doc.setTextColor(...hexToRgb(textoMedio));
+            doc.text('Relatório gerado por Ação Pro', pageWidth / 2, 280, { align: 'center' });
+
+            doc.save(`relatorio_${anoMesAlvo}.pdf`);
+        }
+
+        // Função para gerar PDF do relatório completo (todos os meses)
+        function gerarPDFRelatorioCompleto() {
+            const paidParticipants = participantes.filter(p => p.pago && p.dataPagamento);
+            if (paidParticipants.length === 0) {
+                alert('Nenhum pagamento registrado para gerar relatório.');
+                return;
+            }
+
+            // Agrupar por mês
+            const mesesMap = new Map();
+            paidParticipants.forEach(p => {
+                const d = new Date(p.dataPagamento);
+                const chave = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+                if (!mesesMap.has(chave)) {
+                    mesesMap.set(chave, {
+                        ano: d.getFullYear(),
+                        mes: d.getMonth()+1,
+                        participantes: [],
+                        total: 0
+                    });
+                }
+                mesesMap.get(chave).participantes.push(p);
+                mesesMap.get(chave).total += valorAcao;
+            });
+
+            const mesesOrdenados = Array.from(mesesMap.entries()).sort((a,b) => b[0].localeCompare(a[0]));
+
+            const doc = new jsPDF();
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const margin = 20;
+            const contentWidth = pageWidth - 2 * margin;
+
+            const azulEscuro = '#1e3b5c';
+            const azulClaro = '#e9eff9';
+            const textoEscuro = '#1a2b3c';
+            const textoMedio = '#5f748e';
+
+            function hexToRgb(hex) {
+                const r = parseInt(hex.slice(1,3), 16);
+                const g = parseInt(hex.slice(3,5), 16);
+                const b = parseInt(hex.slice(5,7), 16);
+                return [r, g, b];
+            }
+
+            // Cabeçalho
+            doc.setFillColor(...hexToRgb(azulEscuro));
+            doc.rect(margin, 20, contentWidth, 18, 'F');
+            doc.setTextColor(255,255,255);
+            doc.setFontSize(16);
+            doc.setFont(undefined, 'bold');
+            doc.text('RELATÓRIO COMPLETO', pageWidth / 2, 32, { align: 'center' });
+
+            // Nome da ação
+            doc.setFontSize(10);
+            doc.setTextColor(255,255,255);
+            doc.text(nomeAcao, pageWidth - margin - 10, 32, { align: 'right' });
+
+            let y = 50;
+
+            mesesOrdenados.forEach(([chave, dados]) => {
+                if (y > 240) {
+                    doc.addPage();
+                    y = 20;
+                }
+
+                const nomeMes = new Date(dados.ano, dados.mes-1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+                doc.setFontSize(12);
+                doc.setFont(undefined, 'bold');
+                doc.setTextColor(...hexToRgb(azulEscuro));
+                doc.text(nomeMes, margin, y);
+                y += 6;
+
+                doc.setFontSize(9);
+                doc.setFont(undefined, 'bold');
+                doc.text('Nº', margin, y);
+                doc.text('Participante', margin + 25, y);
+                doc.text('Valor', pageWidth - margin - 30, y, { align: 'right' });
+                doc.setDrawColor(...hexToRgb(azulEscuro));
+                doc.line(margin, y + 2, pageWidth - margin, y + 2);
+                y += 8;
+
+                doc.setFont(undefined, 'normal');
+                doc.setTextColor(...hexToRgb(textoEscuro));
+
+                dados.participantes.sort((a,b) => a.numero - b.numero).forEach(p => {
+                    if (y > 250) {
+                        doc.addPage();
+                        y = 20;
+                    }
+                    doc.text(p.numero.toString(), margin, y);
+                    doc.text(p.nome, margin + 25, y, { maxWidth: contentWidth - 85 });
+                    doc.text(`R$ ${valorAcao.toFixed(2)}`, pageWidth - margin - 30, y, { align: 'right' });
+                    y += 6;
+                });
+
+                // Total do mês
+                doc.setFont(undefined, 'bold');
+                doc.setTextColor(...hexToRgb(textoEscuro));
+                doc.text(`Total do mês: R$ ${dados.total.toFixed(2)}`, pageWidth - margin - 80, y + 2);
+                y += 10;
+                doc.setDrawColor(...hexToRgb(azulClaro));
+                doc.line(margin, y - 4, pageWidth - margin, y - 4);
+                y += 2;
+            });
+
+            // Rodapé
+            doc.setFontSize(8);
+            doc.setTextColor(...hexToRgb(textoMedio));
+            doc.text('Relatório completo gerado por Ação Pro', pageWidth / 2, 280, { align: 'center' });
+
+            doc.save(`relatorio_completo.pdf`);
+        }
+
         function renderizarLista(lista) {
             if (lista.length === 0) {
-                participantListDiv.innerHTML = '<div class="empty-message">Nenhum número encontrado.</div>';
+                participantListDiv.innerHTML = '<div class="empty-message">Nenhum número cadastrado.</div>';
                 return;
             }
 
@@ -1197,7 +1476,7 @@
         function atualizarResumo() {
             const totalNumeros = participantes.length;
             const totalPago = participantes.filter(p => p.pago).length;
-            const arrecadado = totalPago * valorRifa;
+            const arrecadado = totalPago * valorAcao;
             totalNumerosSpan.innerText = totalNumeros;
             totalArrecadadoSpan.innerText = `R$ ${arrecadado.toFixed(2)}`;
 
@@ -1213,7 +1492,7 @@
                 listaMes = participantes.filter(p => p.pago && p.dataPagamento && new Date(p.dataPagamento).getFullYear() === anoAtual && (new Date(p.dataPagamento).getMonth() + 1) === mesAtual);
                 monthLabel.innerText = 'mês atual';
             }
-            totalMesSpan.innerText = `R$ ${(listaMes.filter(p => p.pago).length * valorRifa).toFixed(2)}`;
+            totalMesSpan.innerText = `R$ ${(listaMes.filter(p => p.pago).length * valorAcao).toFixed(2)}`;
         }
 
         function preencherSelectMeses() {
@@ -1255,7 +1534,7 @@
                         });
                     }
                     mesesMap.get(chave).participantes.push(p);
-                    mesesMap.get(chave).total += valorRifa;
+                    mesesMap.get(chave).total += valorAcao;
                 }
             });
 
@@ -1276,7 +1555,7 @@
                         <ul class="month-participants">
                 `;
                 dados.participantes.sort((a,b) => a.numero - b.numero).forEach(p => {
-                    html += `<li><span>#${p.numero} - ${p.nome}</span> <span>R$ ${valorRifa.toFixed(2)}</span></li>`;
+                    html += `<li><span>#${p.numero} - ${p.nome}</span> <span>R$ ${valorAcao.toFixed(2)}</span></li>`;
                 });
                 html += `</ul></div>`;
             }
@@ -1313,7 +1592,7 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `rifa_backup_${new Date().toISOString().slice(0,10)}.json`;
+            a.download = `acao_backup_${new Date().toISOString().slice(0,10)}.json`;
             a.click();
             URL.revokeObjectURL(url);
         }
@@ -1397,21 +1676,25 @@
         });
 
         btnSalvarConfig.addEventListener('click', async () => {
+            const novoNomeAcao = nomeAcaoInput.value.trim();
             const novoPremio = premioInput.value.trim();
             const novaData = dataSorteioInput.value;
             const novoValor = parseFloat(valorInput.value);
 
+            if (!novoNomeAcao) return alert('Informe o nome da ação');
             if (!novoPremio) return alert('Informe o prêmio');
             if (!novaData) return alert('Informe a data do sorteio');
             if (isNaN(novoValor) || novoValor <= 0) return alert('Valor inválido');
 
+            nomeAcao = novoNomeAcao;
             premio = novoPremio;
             dataSorteio = novaData;
-            valorRifa = novoValor;
+            valorAcao = novoValor;
 
+            await db.config.put({ chave: 'nomeAcao', valor: nomeAcao });
             await db.config.put({ chave: 'premio', valor: premio });
             await db.config.put({ chave: 'dataSorteio', valor: dataSorteio });
-            await db.config.put({ chave: 'valorRifa', valor: valorRifa });
+            await db.config.put({ chave: 'valorAcao', valor: valorAcao });
 
             atualizarResumo();
             if (abaAtiva === 'relatorio') renderizarRelatorio();
@@ -1431,6 +1714,10 @@
 
         exportBackupBtn.addEventListener('click', exportarBackup);
         importBackupBtn.addEventListener('click', importarBackup);
+
+        // Eventos para exportar relatórios PDF
+        exportMensalPDF.addEventListener('click', gerarPDFRelatorioMensal);
+        exportCompletoPDF.addEventListener('click', gerarPDFRelatorioCompleto);
 
         await carregarConfig();
         await carregarParticipantes();
