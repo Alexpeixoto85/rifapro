@@ -511,7 +511,7 @@
             padding: 6px 18px;
             border-radius: 60px;
             font-weight: 600;
-            font-size: 0.85rem;
+            font-size: 1.2rem;
         }
         .receipt-grid {
             display: grid;
@@ -544,6 +544,76 @@
             font-weight: 800;
             font-size: 1.2rem;
             margin-top: 10px;
+        }
+
+        /* Modal de adicionar números modernizado */
+        .modal-add {
+            background: #ffffff;
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        .input-group label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+            color: #1e3b5c;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+        }
+        .input-group label i {
+            font-size: 1.2rem;
+        }
+        .input-group input, .input-group textarea {
+            width: 100%;
+            padding: 16px 18px;
+            border-radius: 24px;
+            border: 2px solid #e0e8f2;
+            font-size: 1rem;
+            background: #f9fcff;
+            transition: 0.2s;
+        }
+        .input-group input:focus, .input-group textarea:focus {
+            border-color: #1e3b5c;
+            outline: none;
+            background: #ffffff;
+        }
+        .input-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+        .hint {
+            font-size: 0.8rem;
+            color: #5f748e;
+            margin-top: 6px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+        .modal-actions button {
+            flex: 1;
+            padding: 16px;
+            border-radius: 40px;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        .btn-save {
+            background: #1e3b5c;
+            color: white;
+            box-shadow: 0 8px 16px -4px #1e3b5c80;
+        }
+        .btn-cancel {
+            background: #eef2f6;
+            color: #1e3b5c;
+            border: 1px solid #cbd5e3;
         }
 
         .empty-message {
@@ -669,16 +739,24 @@
         </div>
     </div>
 
-    <!-- MODAL PARA ADICIONAR NÚMEROS (já existente) -->
+    <!-- MODAL PARA ADICIONAR NÚMEROS (MODERNIZADO) -->
     <div id="participanteModal" class="modal-overlay">
-        <div class="modal">
+        <div class="modal modal-add">
             <h3 id="modalTitle">➕ Adicionar números</h3>
-            <input type="text" id="participanteNome" placeholder="Nome completo">
-            <textarea id="participanteNumeros" placeholder="Números (separados por vírgula, ex: 10,15,22)" rows="3"></textarea>
-            <p class="text-small">Todos os números farão parte do mesmo grupo e terão um recibo único.</p>
-            <div class="modal-actions" style="display: flex; gap:8px; margin-top:16px;">
-                <button class="btn-primary" id="salvarParticipante">Salvar</button>
-                <button class="btn-secondary" id="cancelarParticipante">Cancelar</button>
+            <div class="input-group">
+                <label><span>👤</span> Nome completo</label>
+                <input type="text" id="participanteNome" placeholder="Ex: João da Silva">
+            </div>
+            <div class="input-group">
+                <label><span>🔢</span> Números</label>
+                <textarea id="participanteNumeros" placeholder="Ex: 10, 15, 22, 37" rows="3"></textarea>
+                <div class="hint">
+                    <span>ℹ️</span> Separe os números por vírgula. Todos farão parte do mesmo grupo.
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-save" id="salvarParticipante">Salvar grupo</button>
+                <button class="btn-cancel" id="cancelarParticipante">Cancelar</button>
             </div>
         </div>
     </div>
@@ -704,7 +782,7 @@
         let termoBusca = '';
         let abaAtiva = 'participantes';
 
-        // Elementos DOM (agora organizados)
+        // Elementos DOM
         const premioInput = document.getElementById('premioInput');
         const dataSorteioInput = document.getElementById('dataSorteioInput');
         const valorInput = document.getElementById('valorRifaInput');
@@ -775,6 +853,28 @@
             valorInput.value = valorRifa.toFixed(2);
         }
 
+        // Função para gerar número de recibo de 4 dígitos (1000-9999)
+        function gerarNumeroRecibo() {
+            return Math.floor(1000 + Math.random() * 9000);
+        }
+
+        // Função para garantir que participantes antigos tenham reciboNum (fallback)
+        async function garantirReciboNum() {
+            let atualizou = false;
+            for (let p of participantes) {
+                if (!p.reciboNum) {
+                    // Gerar um número baseado no groupId (hash simples)
+                    const hash = p.groupId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+                    p.reciboNum = (hash % 9000 + 1000); // entre 1000 e 9999
+                    await db.participantes.update(p.id, { reciboNum: p.reciboNum });
+                    atualizou = true;
+                }
+            }
+            if (atualizou) {
+                participantes = await db.participantes.toArray();
+            }
+        }
+
         // Carregar participantes
         async function carregarParticipantes() {
             let lista = await db.participantes.toArray();
@@ -788,6 +888,7 @@
                 lista = await db.participantes.toArray();
             }
             participantes = lista;
+            await garantirReciboNum(); // garantir que todos tenham reciboNum
             aplicarFiltrosEAtualizar();
         }
 
@@ -835,6 +936,7 @@
             if (!numeros) return false;
 
             const groupId = 'grupo_' + Date.now() + '_' + Math.random().toString(36).substring(2);
+            const reciboNum = gerarNumeroRecibo(); // número de 4 dígitos
 
             for (let num of numeros) {
                 await db.participantes.add({
@@ -843,7 +945,8 @@
                     numero: num,
                     pago: false,
                     dataPagamento: null,
-                    groupId: groupId
+                    groupId: groupId,
+                    reciboNum: reciboNum
                 });
             }
             return true;
@@ -874,7 +977,7 @@
             }
         }
 
-        // RECIBO MODERNO (HTML)
+        // RECIBO MODERNO (HTML) com número de 4 dígitos
         function exibirReciboGrupo(groupId) {
             const grupo = participantes.filter(p => p.groupId === groupId);
             if (grupo.length === 0) return;
@@ -890,12 +993,12 @@
             const dataSorteioFormatada = dataSorteio ? new Date(dataSorteio).toLocaleDateString('pt-BR') : '—';
             const valorTotal = grupo.length * valorRifa;
             const numerosStr = numeros.map(n => `#${n}`).join(', ');
-            const groupShort = groupId.slice(-6).toUpperCase();
+            const reciboNum = grupo[0].reciboNum || 0; // fallback
 
             const html = `
                 <div class="receipt-header">
                     <h4>RECIBO</h4>
-                    <span class="receipt-badge">#${groupShort}</span>
+                    <span class="receipt-badge">#${reciboNum.toString().padStart(4,'0')}</span>
                 </div>
                 <div class="receipt-grid">
                     <div class="receipt-item"><span class="label">Participante</span><div class="value">${nome}</div></div>
@@ -915,7 +1018,7 @@
             reciboModal.style.display = 'flex';
         }
 
-        // RECIBO PDF MODERNIZADO (COM CORES DO SISTEMA)
+        // RECIBO PDF MODERNIZADO (COM CORES DO SISTEMA) e número de 4 dígitos
         function gerarPDFGrupo(grupo) {
             const doc = new jsPDF();
             const pageWidth = doc.internal.pageSize.getWidth();
@@ -925,11 +1028,9 @@
             // Cores do sistema
             const azulEscuro = '#1e3b5c';
             const azulClaro = '#e9eff9';
-            const cinzaClaro = '#f0f4f8';
             const textoEscuro = '#1a2b3c';
             const textoMedio = '#5f748e';
 
-            // Função para converter hex para RGB (jsPDF usa array [r,g,b])
             function hexToRgb(hex) {
                 const r = parseInt(hex.slice(1,3), 16);
                 const g = parseInt(hex.slice(3,5), 16);
@@ -945,13 +1046,13 @@
             doc.setFont(undefined, 'bold');
             doc.text('RECIBO DE PAGAMENTO', pageWidth / 2, 32, { align: 'center' });
 
-            // Código do grupo (canto direito)
-            const groupShort = grupo[0].groupId.slice(-6).toUpperCase();
+            // Número do recibo (4 dígitos)
+            const reciboNum = (grupo[0].reciboNum || 0).toString().padStart(4,'0');
             doc.setFontSize(10);
             doc.setTextColor(255,255,255);
-            doc.text(`#${groupShort}`, pageWidth - margin - 10, 32, { align: 'right' });
+            doc.text(`#${reciboNum}`, pageWidth - margin - 10, 32, { align: 'right' });
 
-            // Dados do participante (em duas colunas)
+            // Dados do participante
             doc.setTextColor(...hexToRgb(textoEscuro));
             doc.setFontSize(11);
             doc.setFont(undefined, 'normal');
@@ -960,7 +1061,6 @@
             const lineHeight = 10;
             const colWidth = (contentWidth - 20) / 2;
 
-            // Nome e números (ocupam linha inteira)
             doc.setFont(undefined, 'bold');
             doc.text('Participante:', margin, yStart);
             doc.setFont(undefined, 'normal');
@@ -983,7 +1083,7 @@
             doc.setFont(undefined, 'normal');
             doc.text(`R$ ${valorRifa.toFixed(2)}`, margin + 40, yStart + 3*lineHeight);
 
-            // Segunda coluna (x = margin + colWidth + 10)
+            // Segunda coluna
             const x2 = margin + colWidth + 10;
             doc.setFont(undefined, 'bold');
             doc.text('Prêmio:', x2, yStart + 2*lineHeight);
@@ -1007,7 +1107,7 @@
             doc.setLineWidth(0.5);
             doc.line(margin, yStart + 5*lineHeight + 2, pageWidth - margin, yStart + 5*lineHeight + 2);
 
-            // Total em destaque (com fundo azul claro)
+            // Total em destaque
             const totalY = yStart + 6*lineHeight;
             const valorTotal = grupo.length * valorRifa;
             doc.setFillColor(...hexToRgb(azulClaro));
@@ -1023,8 +1123,7 @@
             doc.setTextColor(...hexToRgb(textoMedio));
             doc.text('Documento gerado por Rifa Pro', pageWidth / 2, 280, { align: 'center' });
 
-            // Salvar PDF
-            doc.save(`recibo_${grupo[0].nome.replace(/\s/g,'_')}_${grupo.length}nums.pdf`);
+            doc.save(`recibo_${grupo[0].nome.replace(/\s/g,'_')}_${reciboNum}.pdf`);
         }
 
         function renderizarLista(lista) {
@@ -1317,7 +1416,7 @@
             atualizarResumo();
             if (abaAtiva === 'relatorio') renderizarRelatorio();
             alert('Configurações salvas!');
-            configModal.style.display = 'none'; // opcional: fechar após salvar
+            configModal.style.display = 'none';
         });
 
         searchInput.addEventListener('input', (e) => {
