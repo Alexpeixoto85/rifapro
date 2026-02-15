@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
     <title>Ação Pro · Gestão simplificada</title>
-    <!-- Dexie (IndexedDB) -->
+    <!-- Dexie (IndexedDB) - mesmo nome do banco anterior para manter dados -->
     <script src="https://unpkg.com/dexie@3.2.3/dist/dexie.js"></script>
     <!-- jsPDF para gerar PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -739,7 +739,7 @@
             <h3>⚙️ Configurações</h3>
             <div class="config-row">
                 <label>Nome da Ação</label>
-                <input type="text" id="nomeAcaoInput" placeholder="Ex: Ação Pro 3 Ano Santíssima" value="Ação Pro 3 Ano Santíssima">
+                <input type="text" id="nomeAcaoInput" placeholder="Ex: Ação Pro 3 Ano Santíssima" value="Ação Pro">
             </div>
             <div class="config-row">
                 <label>Prêmio</label>
@@ -750,8 +750,8 @@
                 <input type="date" id="dataSorteioInput">
             </div>
             <div class="config-row">
-                <label>Valor da ação (R$)</label>
-                <input type="number" id="valorAcaoInput" step="0.01" min="0.01" value="5.00">
+                <label>Valor da cota (R$)</label>
+                <input type="number" id="valorRifaInput" step="0.01" min="0.01" value="5.00">
             </div>
             <button class="btn-primary" id="btnSalvarConfig" style="width:100%; margin: 8px 0 20px;">Salvar alterações</button>
 
@@ -805,26 +805,27 @@
     (async function() {
         const { jsPDF } = window.jspdf;
 
-        const db = new Dexie('AcaoProDB');
+        // Mantemos o mesmo nome do banco para preservar os dados da versão anterior (RifaProDB)
+        const db = new Dexie('RifaProDB');
         db.version(2).stores({
             participantes: 'id, nome, numero, pago, dataPagamento, groupId',
             config: 'chave'
         });
 
         let participantes = [];
-        let valorAcao = 5.00;
+        let valorRifa = 5.00;
         let premio = 'Smartphone';
         let dataSorteio = '';
-        let nomeAcao = 'Ação Pro 3 Ano Santíssima';
+        let nomeAcao = 'Ação Pro'; // novo campo
         let filtroMes = 'todos';
         let termoBusca = '';
         let abaAtiva = 'participantes';
 
         // Elementos DOM
-        const nomeAcaoInput = document.getElementById('nomeAcaoInput');
         const premioInput = document.getElementById('premioInput');
         const dataSorteioInput = document.getElementById('dataSorteioInput');
-        const valorInput = document.getElementById('valorAcaoInput');
+        const valorInput = document.getElementById('valorRifaInput');
+        const nomeAcaoInput = document.getElementById('nomeAcaoInput');
         const btnSalvarConfig = document.getElementById('btnSalvarConfig');
         const totalNumerosSpan = document.getElementById('totalNumeros');
         const totalArrecadadoSpan = document.getElementById('totalArrecadado');
@@ -870,11 +871,11 @@
             if (e.target === configModal) configModal.style.display = 'none';
         });
 
-        // Carregar configurações
+        // Carregar configurações (incluindo novo campo nomeAcao)
         async function carregarConfig() {
-            const configValor = await db.config.get('valorAcao');
-            if (configValor) valorAcao = configValor.valor;
-            else await db.config.put({ chave: 'valorAcao', valor: valorAcao });
+            const configValor = await db.config.get('valorRifa');
+            if (configValor) valorRifa = configValor.valor;
+            else await db.config.put({ chave: 'valorRifa', valor: valorRifa });
 
             const configPremio = await db.config.get('premio');
             if (configPremio) premio = configPremio.valor;
@@ -891,12 +892,15 @@
 
             const configNomeAcao = await db.config.get('nomeAcao');
             if (configNomeAcao) nomeAcao = configNomeAcao.valor;
-            else await db.config.put({ chave: 'nomeAcao', valor: nomeAcao });
+            else {
+                nomeAcao = 'Ação Pro';
+                await db.config.put({ chave: 'nomeAcao', valor: nomeAcao });
+            }
 
-            nomeAcaoInput.value = nomeAcao;
             premioInput.value = premio;
             dataSorteioInput.value = dataSorteio;
-            valorInput.value = valorAcao.toFixed(2);
+            valorInput.value = valorRifa.toFixed(2);
+            nomeAcaoInput.value = nomeAcao;
         }
 
         // Função para gerar número de recibo de 4 dígitos (1000-9999)
@@ -1037,7 +1041,7 @@
             const numeros = grupo.map(p => p.numero).sort((a,b) => a-b);
             const dataPagamento = grupo[0].dataPagamento ? new Date(grupo[0].dataPagamento).toLocaleString('pt-BR') : '—';
             const dataSorteioFormatada = dataSorteio ? new Date(dataSorteio).toLocaleDateString('pt-BR') : '—';
-            const valorTotal = grupo.length * valorAcao;
+            const valorTotal = grupo.length * valorRifa;
             const numerosStr = numeros.map(n => `#${n}`).join(', ');
             const reciboNum = grupo[0].reciboNum || 0; // fallback
 
@@ -1051,7 +1055,7 @@
                     <div class="receipt-item"><span class="label">Participante</span><div class="value">${nome}</div></div>
                     <div class="receipt-item"><span class="label">Números</span><div class="value">${numerosStr}</div></div>
                     <div class="receipt-item"><span class="label">Quantidade</span><div class="value">${grupo.length}</div></div>
-                    <div class="receipt-item"><span class="label">Valor unit.</span><div class="value">R$ ${valorAcao.toFixed(2)}</div></div>
+                    <div class="receipt-item"><span class="label">Valor unit.</span><div class="value">R$ ${valorRifa.toFixed(2)}</div></div>
                     <div class="receipt-item"><span class="label">Prêmio</span><div class="value">${premio}</div></div>
                     <div class="receipt-item"><span class="label">Sorteio</span><div class="value">${dataSorteioFormatada}</div></div>
                     <div class="receipt-item"><span class="label">Pagamento</span><div class="value">${dataPagamento}</div></div>
@@ -1065,7 +1069,7 @@
             reciboModal.style.display = 'flex';
         }
 
-        // RECIBO PDF MODERNIZADO (COM CORES DO SISTEMA) e número de 4 dígitos
+        // RECIBO PDF MODERNIZADO (COM CORES DO SISTEMA) com número de 4 dígitos e nome da ação
         function gerarPDFGrupo(grupo) {
             const doc = new jsPDF();
             const pageWidth = doc.internal.pageSize.getWidth();
@@ -1108,6 +1112,7 @@
             const lineHeight = 10;
             const colWidth = (contentWidth - 20) / 2;
 
+            // Nome da ação
             doc.setFont(undefined, 'bold');
             doc.text('Ação:', margin, yStart);
             doc.setFont(undefined, 'normal');
@@ -1116,15 +1121,15 @@
             doc.setFont(undefined, 'bold');
             doc.text('Participante:', margin, yStart + lineHeight);
             doc.setFont(undefined, 'normal');
-            doc.text(grupo[0].nome, margin + 50, yStart + lineHeight, { maxWidth: contentWidth - 70 });
+            doc.text(grupo[0].nome, margin + 50, yStart + lineHeight);
 
             doc.setFont(undefined, 'bold');
             doc.text('Números:', margin, yStart + 2*lineHeight);
             doc.setFont(undefined, 'normal');
             const numerosStr = grupo.map(p => p.numero).sort((a,b) => a-b).join(', ');
-            doc.text(numerosStr, margin + 40, yStart + 2*lineHeight, { maxWidth: contentWidth - 60 });
+            doc.text(numerosStr, margin + 40, yStart + 2*lineHeight, { maxWidth: contentWidth - 50 });
 
-            // Primeira coluna (continua)
+            // Primeira coluna (agora mais abaixo)
             doc.setFont(undefined, 'bold');
             doc.text('Quantidade:', margin, yStart + 3*lineHeight);
             doc.setFont(undefined, 'normal');
@@ -1133,7 +1138,7 @@
             doc.setFont(undefined, 'bold');
             doc.text('Valor unit.:', margin, yStart + 4*lineHeight);
             doc.setFont(undefined, 'normal');
-            doc.text(`R$ ${valorAcao.toFixed(2)}`, margin + 50, yStart + 4*lineHeight);
+            doc.text(`R$ ${valorRifa.toFixed(2)}`, margin + 50, yStart + 4*lineHeight);
 
             // Segunda coluna
             const x2 = margin + colWidth + 10;
@@ -1161,7 +1166,7 @@
 
             // Total em destaque
             const totalY = yStart + 7*lineHeight;
-            const valorTotal = grupo.length * valorAcao;
+            const valorTotal = grupo.length * valorRifa;
             doc.setFillColor(...hexToRgb(azulClaro));
             doc.roundedRect(margin, totalY - 4, contentWidth, 20, 3, 3, 'F');
             doc.setTextColor(...hexToRgb(textoEscuro));
@@ -1206,7 +1211,7 @@
                 return;
             }
 
-            const totalMes = participantesMes.length * valorAcao;
+            const totalMes = participantesMes.length * valorRifa;
             const nomeMes = new Date(ano, mes-1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
             const doc = new jsPDF();
@@ -1234,19 +1239,15 @@
             doc.setFont(undefined, 'bold');
             doc.text('RELATÓRIO MENSAL', pageWidth / 2, 32, { align: 'center' });
 
-            // Nome da ação
-            doc.setFontSize(10);
-            doc.setTextColor(255,255,255);
-            doc.text(nomeAcao, pageWidth - margin - 10, 32, { align: 'right' });
-
-            // Mês
+            // Nome da ação e mês
             doc.setFontSize(12);
             doc.setTextColor(...hexToRgb(textoEscuro));
             doc.setFont(undefined, 'bold');
-            doc.text(`Mês: ${nomeMes}`, margin, 50);
+            doc.text(`Ação: ${nomeAcao}`, margin, 50);
+            doc.text(`Mês: ${nomeMes}`, margin, 60);
 
             // Tabela de participantes
-            let y = 70;
+            let y = 80;
             doc.setFontSize(10);
             doc.setFont(undefined, 'bold');
             doc.setTextColor(...hexToRgb(azulEscuro));
@@ -1269,7 +1270,7 @@
                 }
                 doc.text(p.numero.toString(), margin, y);
                 doc.text(p.nome, margin + 30, y, { maxWidth: contentWidth - 90 });
-                doc.text(`R$ ${valorAcao.toFixed(2)}`, pageWidth - margin - 30, y, { align: 'right' });
+                doc.text(`R$ ${valorRifa.toFixed(2)}`, pageWidth - margin - 30, y, { align: 'right' });
                 y += 8;
             });
 
@@ -1289,7 +1290,7 @@
             doc.setTextColor(...hexToRgb(textoMedio));
             doc.text('Relatório gerado por Ação Pro', pageWidth / 2, 280, { align: 'center' });
 
-            doc.save(`relatorio_${anoMesAlvo}.pdf`);
+            doc.save(`relatorio_${nomeAcao.replace(/\s/g,'_')}_${anoMesAlvo}.pdf`);
         }
 
         // Função para gerar PDF do relatório completo (todos os meses)
@@ -1314,7 +1315,7 @@
                     });
                 }
                 mesesMap.get(chave).participantes.push(p);
-                mesesMap.get(chave).total += valorAcao;
+                mesesMap.get(chave).total += valorRifa;
             });
 
             const mesesOrdenados = Array.from(mesesMap.entries()).sort((a,b) => b[0].localeCompare(a[0]));
@@ -1345,11 +1346,12 @@
             doc.text('RELATÓRIO COMPLETO', pageWidth / 2, 32, { align: 'center' });
 
             // Nome da ação
-            doc.setFontSize(10);
-            doc.setTextColor(255,255,255);
-            doc.text(nomeAcao, pageWidth - margin - 10, 32, { align: 'right' });
+            doc.setFontSize(12);
+            doc.setTextColor(...hexToRgb(textoEscuro));
+            doc.setFont(undefined, 'bold');
+            doc.text(`Ação: ${nomeAcao}`, margin, 50);
 
-            let y = 50;
+            let y = 60;
 
             mesesOrdenados.forEach(([chave, dados]) => {
                 if (y > 240) {
@@ -1383,7 +1385,7 @@
                     }
                     doc.text(p.numero.toString(), margin, y);
                     doc.text(p.nome, margin + 25, y, { maxWidth: contentWidth - 85 });
-                    doc.text(`R$ ${valorAcao.toFixed(2)}`, pageWidth - margin - 30, y, { align: 'right' });
+                    doc.text(`R$ ${valorRifa.toFixed(2)}`, pageWidth - margin - 30, y, { align: 'right' });
                     y += 6;
                 });
 
@@ -1402,12 +1404,12 @@
             doc.setTextColor(...hexToRgb(textoMedio));
             doc.text('Relatório completo gerado por Ação Pro', pageWidth / 2, 280, { align: 'center' });
 
-            doc.save(`relatorio_completo.pdf`);
+            doc.save(`relatorio_completo_${nomeAcao.replace(/\s/g,'_')}.pdf`);
         }
 
         function renderizarLista(lista) {
             if (lista.length === 0) {
-                participantListDiv.innerHTML = '<div class="empty-message">Nenhum número cadastrado.</div>';
+                participantListDiv.innerHTML = '<div class="empty-message">Nenhum número encontrado.</div>';
                 return;
             }
 
@@ -1476,7 +1478,7 @@
         function atualizarResumo() {
             const totalNumeros = participantes.length;
             const totalPago = participantes.filter(p => p.pago).length;
-            const arrecadado = totalPago * valorAcao;
+            const arrecadado = totalPago * valorRifa;
             totalNumerosSpan.innerText = totalNumeros;
             totalArrecadadoSpan.innerText = `R$ ${arrecadado.toFixed(2)}`;
 
@@ -1492,7 +1494,7 @@
                 listaMes = participantes.filter(p => p.pago && p.dataPagamento && new Date(p.dataPagamento).getFullYear() === anoAtual && (new Date(p.dataPagamento).getMonth() + 1) === mesAtual);
                 monthLabel.innerText = 'mês atual';
             }
-            totalMesSpan.innerText = `R$ ${(listaMes.filter(p => p.pago).length * valorAcao).toFixed(2)}`;
+            totalMesSpan.innerText = `R$ ${(listaMes.filter(p => p.pago).length * valorRifa).toFixed(2)}`;
         }
 
         function preencherSelectMeses() {
@@ -1534,7 +1536,7 @@
                         });
                     }
                     mesesMap.get(chave).participantes.push(p);
-                    mesesMap.get(chave).total += valorAcao;
+                    mesesMap.get(chave).total += valorRifa;
                 }
             });
 
@@ -1555,7 +1557,7 @@
                         <ul class="month-participants">
                 `;
                 dados.participantes.sort((a,b) => a.numero - b.numero).forEach(p => {
-                    html += `<li><span>#${p.numero} - ${p.nome}</span> <span>R$ ${valorAcao.toFixed(2)}</span></li>`;
+                    html += `<li><span>#${p.numero} - ${p.nome}</span> <span>R$ ${valorRifa.toFixed(2)}</span></li>`;
                 });
                 html += `</ul></div>`;
             }
@@ -1689,12 +1691,12 @@
             nomeAcao = novoNomeAcao;
             premio = novoPremio;
             dataSorteio = novaData;
-            valorAcao = novoValor;
+            valorRifa = novoValor;
 
             await db.config.put({ chave: 'nomeAcao', valor: nomeAcao });
             await db.config.put({ chave: 'premio', valor: premio });
             await db.config.put({ chave: 'dataSorteio', valor: dataSorteio });
-            await db.config.put({ chave: 'valorAcao', valor: valorAcao });
+            await db.config.put({ chave: 'valorRifa', valor: valorRifa });
 
             atualizarResumo();
             if (abaAtiva === 'relatorio') renderizarRelatorio();
