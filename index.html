@@ -932,11 +932,13 @@
         </div>
     </div>
 
-    <!-- MODAL DE SORTEIO -->
+    <!-- MODAL DE SORTEIO (com animação) -->
     <div id="sorteioModal" class="modal-overlay">
         <div class="modal">
-            <h3>🎲 Resultado do Sorteio</h3>
-            <div id="sorteioResult" class="receipt-modern" style="text-align: center;"></div>
+            <h3 id="sorteioModalTitle">🎲 Sorteio em andamento</h3>
+            <div id="sorteioResult" class="receipt-modern" style="text-align: center; min-height: 200px; display: flex; flex-direction: column; justify-content: center;">
+                <!-- Conteúdo dinâmico -->
+            </div>
             <button class="btn-primary" id="fecharSorteioModal" style="width:100%; margin-top:12px;">Fechar</button>
         </div>
     </div>
@@ -1002,7 +1004,7 @@
         </div>
     </div>
 
-    <footer>Recibo único por grupo • Múltiplas ações • Sorteio integrado • Geração automática de números</footer>
+    <footer>Recibo único por grupo • Múltiplas ações • Sorteio com roleta • Geração automática de números</footer>
 </div>
 
 <script>
@@ -1016,7 +1018,6 @@
             config: 'chave',
             acoes: 'id, nome, premio, dataSorteio, valor, disponivel, sorteado'
         }).upgrade(tx => {
-            // Para ações existentes, definir sorteado como false
             return tx.table('acoes').toCollection().modify(acao => {
                 acao.sorteado = acao.sorteado || false;
             });
@@ -1086,8 +1087,10 @@
         const sorteioModal = document.getElementById('sorteioModal');
         const sorteioResult = document.getElementById('sorteioResult');
         const fecharSorteioModal = document.getElementById('fecharSorteioModal');
+        const sorteioModalTitle = document.getElementById('sorteioModalTitle');
 
         let reciboAtual = null;
+        let animacaoSorteioAtiva = false; // para controle
 
         // --- MIGRAÇÃO DE DADOS DA VERSÃO ANTERIOR (se necessário) ---
         async function migrarDadosAntigos() {
@@ -1496,7 +1499,7 @@
             doc.save(`recibo_${grupo[0].nome.replace(/\s/g,'_')}_${reciboNum}.pdf`);
         }
 
-        // --- SORTEIO (com verificação de já sorteado) ---
+        // --- SORTEIO COM ANIMAÇÃO (30 SEGUNDOS) ---
         async function realizarSorteio(acaoId) {
             const acao = acoes.find(a => a.id === acaoId);
             if (!acao) return;
@@ -1516,8 +1519,8 @@
                 return;
             }
 
-            // Escolher um aleatório
-            const sorteado = participantesPagos[Math.floor(Math.random() * participantesPagos.length)];
+            // Escolher o vencedor antecipadamente (para não mudar no final)
+            const vencedor = participantesPagos[Math.floor(Math.random() * participantesPagos.length)];
 
             // Marcar ação como sorteada (se ainda não estava)
             if (!acao.sorteado) {
@@ -1526,21 +1529,52 @@
                 renderizarListaAcoes(); // atualiza ícone na lista de ações
             }
 
-            // Exibir resultado no modal
-            sorteioResult.innerHTML = `
-                <div style="font-size: 1.5rem; margin-bottom: 16px;">🎉</div>
-                <div style="font-size: 1.2rem; font-weight: 700; color: #1e3b5c;">Número sorteado</div>
-                <div style="font-size: 3rem; font-weight: 800; color: #c9a03d; margin: 8px 0;">#${sorteado.numero}</div>
-                <div style="font-size: 1.1rem; margin-bottom: 12px;"><strong>${sorteado.nome}</strong></div>
-                <div style="background: #f0f6ff; border-radius: 16px; padding: 12px;">
-                    <span style="color: #1e3b5c;">Prêmio: </span>
-                    <span style="font-weight: 700;">${acao.premio}</span>
-                </div>
-                <div style="margin-top: 12px; color: #5f748e; font-size: 0.9rem;">
-                    Ação: ${acao.nome}
-                </div>
-            `;
+            // Abrir modal e iniciar animação
             sorteioModal.style.display = 'flex';
+            sorteioModalTitle.innerText = '🎲 Sorteando...';
+            
+            let inicio = Date.now();
+            const duracao = 30000; // 30 segundos
+            let intervalo;
+
+            // Função para atualizar o conteúdo com um participante aleatório
+            const atualizarRoleta = () => {
+                const aleatorio = participantesPagos[Math.floor(Math.random() * participantesPagos.length)];
+                sorteioResult.innerHTML = `
+                    <div style="font-size: 1.5rem; margin-bottom: 16px;">🎲</div>
+                    <div style="font-size: 1.2rem; font-weight: 700; color: #1e3b5c;">Sorteando...</div>
+                    <div style="font-size: 3rem; font-weight: 800; color: #c9a03d; margin: 8px 0;">#${aleatorio.numero}</div>
+                    <div style="font-size: 1.1rem; margin-bottom: 12px;">${aleatorio.nome}</div>
+                    <div style="margin-top: 12px; color: #5f748e; font-size: 0.9rem;">
+                        Ação: ${acao.nome}
+                    </div>
+                    <div style="margin-top: 16px; font-size: 0.9rem; color: #1e3b5c;">
+                        Aguarde... ${Math.max(0, Math.ceil((duracao - (Date.now() - inicio)) / 1000))}s
+                    </div>
+                `;
+            };
+
+            // Inicia roleta
+            intervalo = setInterval(atualizarRoleta, 80); // muda rápido para dar efeito
+
+            // Para após 30 segundos e mostra o vencedor
+            setTimeout(() => {
+                clearInterval(intervalo);
+                sorteioModalTitle.innerText = '🎉 Resultado do Sorteio';
+                sorteioResult.innerHTML = `
+                    <div style="font-size: 1.5rem; margin-bottom: 16px;">🎉</div>
+                    <div style="font-size: 1.2rem; font-weight: 700; color: #1e3b5c;">Número sorteado</div>
+                    <div style="font-size: 3rem; font-weight: 800; color: #c9a03d; margin: 8px 0;">#${vencedor.numero}</div>
+                    <div style="font-size: 1.1rem; margin-bottom: 12px;"><strong>${vencedor.nome}</strong></div>
+                    <div style="background: #f0f6ff; border-radius: 16px; padding: 12px;">
+                        <span style="color: #1e3b5c;">Prêmio: </span>
+                        <span style="font-weight: 700;">${acao.premio}</span>
+                    </div>
+                    <div style="margin-top: 12px; color: #5f748e; font-size: 0.9rem;">
+                        Ação: ${acao.nome}
+                    </div>
+                `;
+            }, duracao);
         }
 
         // --- RELATÓRIO POR AÇÃO ---
@@ -1946,7 +1980,10 @@
             if (e.target === reciboModal) reciboModal.style.display = 'none';
             if (e.target === participanteModal) participanteModal.style.display = 'none';
             if (e.target === editarAcaoModal) editarAcaoModal.style.display = 'none';
-            if (e.target === sorteioModal) sorteioModal.style.display = 'none';
+            if (e.target === sorteioModal) {
+                // Se clicar no fundo do modal de sorteio, não fechar durante animação? Vamos permitir fechar.
+                sorteioModal.style.display = 'none';
+            }
         });
 
         fecharModal.addEventListener('click', () => reciboModal.style.display = 'none');
