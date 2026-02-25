@@ -421,6 +421,7 @@
             justify-content: center;
             gap: 6px;
             transition: 0.2s;
+            margin-bottom: 6px;
         }
         .btn-relatorio-pdf:hover {
             background: #1e3b5c;
@@ -868,7 +869,7 @@
 
     <div id="tabRelatorio" style="display: none;">
         <div class="card" style="border: none; padding:0;">
-            <h2 style="margin-bottom:16px;">📆 Relatório mensal (mês da ação)</h2>
+            <h2 style="margin-bottom:16px;">📆 Relatório mensal</h2>
             <div id="relatorioContainer" class="relatorio-mensal"></div>
             
             <h2 style="margin:30px 0 16px;">🎯 Relatório por Ação</h2>
@@ -931,26 +932,34 @@
         </div>
     </div>
 
+    <!-- MODAL DE SORTEIO -->
+    <div id="sorteioModal" class="modal-overlay">
+        <div class="modal">
+            <h3>🎲 Resultado do Sorteio</h3>
+            <div id="sorteioResult" class="receipt-modern" style="text-align: center;"></div>
+            <button class="btn-primary" id="fecharSorteioModal" style="width:100%; margin-top:12px;">Fechar</button>
+        </div>
+    </div>
+
     <!-- MODAL PARA ADICIONAR NÚMEROS -->
     <div id="participanteModal" class="modal-overlay">
         <div class="modal modal-add">
             <h3 id="modalTitle">➕ Adicionar números</h3>
             <div class="input-group">
-                <label><span>🎯</span> Ação (mês do sorteio)</label>
+                <label><span>🎯</span> Ação</label>
                 <select id="participanteAcaoSelect" required>
                     <option value="">Selecione uma ação</option>
                 </select>
-                <div class="hint" id="acaoMesHint"></div>
             </div>
             <div class="input-group">
                 <label><span>👤</span> Nome completo</label>
                 <input type="text" id="participanteNome" placeholder="Ex: João da Silva">
             </div>
             <div class="input-group">
-                <label><span>🔢</span> Números</label>
-                <textarea id="participanteNumeros" placeholder="Ex: 10, 15, 22, 37" rows="3"></textarea>
+                <label><span>🔢</span> Números (deixe em branco para gerar automaticamente)</label>
+                <textarea id="participanteNumeros" placeholder="Ex: 10, 15, 22, 37 (opcional)" rows="3"></textarea>
                 <div class="hint">
-                    <span>ℹ️</span> Separe por vírgula. Todos farão parte do mesmo grupo.
+                    <span>ℹ️</span> Separe por vírgula. Se vazio, um número único será gerado.
                 </div>
             </div>
             <div class="modal-actions">
@@ -993,38 +1002,23 @@
         </div>
     </div>
 
-    <footer>Recibo único por grupo • Vendas por mês da ação</footer>
+    <footer>Recibo único por grupo • Múltiplas ações • Sorteio integrado • Geração automática de números</footer>
 </div>
 
 <script>
     (async function() {
         const { jsPDF } = window.jspdf;
 
-        // Atualização para v4: adicionado campo mesRef
+        // Banco de dados
         const db = new Dexie('RifaProDB');
-        db.version(4).stores({
-            participantes: 'id, nome, numero, pago, dataPagamento, groupId, acaoId, mesRef',
+        db.version(3).stores({
+            participantes: 'id, nome, numero, pago, dataPagamento, groupId, acaoId',
             config: 'chave',
             acoes: 'id, nome, premio, dataSorteio, valor, disponivel'
-        }).upgrade(async tx => {
-            // Migração: calcular mesRef para participantes existentes com base na ação
-            const participantes = await tx.table('participantes').toArray();
-            const acoes = await tx.table('acoes').toArray();
-            const acoesMap = new Map(acoes.map(a => [a.id, a]));
-            for (let p of participantes) {
-                let mesRef = null;
-                const acao = acoesMap.get(p.acaoId);
-                if (acao && acao.dataSorteio) {
-                    const d = new Date(acao.dataSorteio);
-                    mesRef = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-                } else {
-                    // fallback: mês atual
-                    const hoje = new Date();
-                    mesRef = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
-                }
-                await tx.table('participantes').update(p.id, { mesRef });
-            }
         });
+
+        // Abrir conexão
+        await db.open();
 
         let participantes = [];
         let acoes = [];
@@ -1050,7 +1044,6 @@
         const participanteNomeInput = document.getElementById('participanteNome');
         const participanteNumerosInput = document.getElementById('participanteNumeros');
         const participanteAcaoSelect = document.getElementById('participanteAcaoSelect');
-        const acaoMesHint = document.getElementById('acaoMesHint');
         const salvarParticipanteBtn = document.getElementById('salvarParticipante');
         const cancelarParticipanteBtn = document.getElementById('cancelarParticipante');
         const tabParticipantes = document.getElementById('tabParticipantes');
@@ -1084,11 +1077,15 @@
         const excluirAcao = document.getElementById('excluirAcao');
         const cancelarEdicaoAcao = document.getElementById('cancelarEdicaoAcao');
 
+        // Elementos do sorteio
+        const sorteioModal = document.getElementById('sorteioModal');
+        const sorteioResult = document.getElementById('sorteioResult');
+        const fecharSorteioModal = document.getElementById('fecharSorteioModal');
+
         let reciboAtual = null;
 
-        // --- MIGRAÇÃO DE DADOS DA VERSÃO ANTERIOR (já tratada pelo upgrade) ---
+        // --- MIGRAÇÃO DE DADOS DA VERSÃO ANTERIOR (se necessário) ---
         async function migrarDadosAntigos() {
-            // Não é mais necessário, pois o upgrade trata, mas mantemos para compatibilidade
             const configValor = await db.config.get('valorRifa');
             const configPremio = await db.config.get('premio');
             const configData = await db.config.get('dataSorteio');
@@ -1129,7 +1126,7 @@
             acoes = await db.acoes.toArray();
             preencherSelectAcoes();
             renderizarListaAcoes();
-            renderizarRelatorioAcoes();
+            renderizarRelatorioAcoes(); // atualiza relatórios
         }
 
         function preencherSelectAcoes() {
@@ -1141,31 +1138,7 @@
                 option.textContent = `${a.nome} (R$ ${a.valor.toFixed(2)})`;
                 select.appendChild(option);
             });
-            // Atualizar hint do mês
-            if (select.value) {
-                const acao = acoes.find(a => a.id === select.value);
-                if (acao) {
-                    const d = new Date(acao.dataSorteio);
-                    const mesAno = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-                    acaoMesHint.innerText = `🗓️ Mês de referência: ${mesAno}`;
-                }
-            } else {
-                acaoMesHint.innerText = '';
-            }
         }
-
-        // Mostrar mês da ação ao selecionar
-        participanteAcaoSelect.addEventListener('change', (e) => {
-            const acaoId = e.target.value;
-            const acao = acoes.find(a => a.id === acaoId);
-            if (acao) {
-                const d = new Date(acao.dataSorteio);
-                const mesAno = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-                acaoMesHint.innerText = `🗓️ Mês de referência: ${mesAno}`;
-            } else {
-                acaoMesHint.innerText = '';
-            }
-        });
 
         function renderizarListaAcoes() {
             if (!acoesListDiv) return;
@@ -1213,7 +1186,7 @@
         // --- CARREGAR PARTICIPANTES ---
         async function carregarParticipantes() {
             participantes = await db.participantes.toArray();
-            // Garantir que todos tenham groupId e reciboNum e mesRef
+            // Garantir que todos tenham groupId e reciboNum (para registros antigos)
             let precisaAtualizar = false;
             for (let p of participantes) {
                 if (!p.groupId) {
@@ -1227,31 +1200,40 @@
                     await db.participantes.update(p.id, { reciboNum: p.reciboNum });
                     precisaAtualizar = true;
                 }
-                if (!p.mesRef) {
-                    // Se não tiver mesRef, tenta calcular da ação
-                    const acao = acoes.find(a => a.id === p.acaoId);
-                    if (acao && acao.dataSorteio) {
-                        const d = new Date(acao.dataSorteio);
-                        p.mesRef = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-                        await db.participantes.update(p.id, { mesRef: p.mesRef });
-                        precisaAtualizar = true;
-                    }
-                }
             }
             if (precisaAtualizar) {
                 participantes = await db.participantes.toArray();
             }
             aplicarFiltrosEAtualizar();
-            renderizarRelatorioAcoes();
+            renderizarRelatorioAcoes(); // atualiza relatórios
         }
 
-        // --- FUNÇÕES AUXILIARES ---
+        // --- CORREÇÃO: número disponível apenas na mesma ação ---
         function numeroDisponivel(numero, acaoId, ignorarId = null) {
             return !participantes.some(p => p.numero === numero && p.acaoId === acaoId && p.id !== ignorarId);
         }
 
+        // --- GERAÇÃO AUTOMÁTICA DE NÚMERO ---
+        function gerarNumeroUnico(acaoId, maxTentativas = 1000) {
+            // Pega todos os números ocupados na ação
+            const ocupados = new Set(participantes.filter(p => p.acaoId === acaoId).map(p => p.numero));
+            for (let tentativa = 0; tentativa < maxTentativas; tentativa++) {
+                // Gera um número entre 1 e 9999 (ajustável)
+                const num = Math.floor(Math.random() * 9999) + 1;
+                if (!ocupados.has(num)) {
+                    return num;
+                }
+            }
+            // Se não encontrar após várias tentativas, usa timestamp reduzido
+            return parseInt(Date.now().toString().slice(-5)) % 10000 + 1;
+        }
+
         async function processarNumeros(texto, acaoId, ignorarId = null) {
-            if (!texto.trim()) return [];
+            // Se campo vazio, gerar um número automático
+            if (!texto.trim()) {
+                return [gerarNumeroUnico(acaoId)];
+            }
+
             const partes = texto.split(',').map(p => p.trim()).filter(p => p !== '');
             const numeros = [];
             const erros = [];
@@ -1284,7 +1266,6 @@
             return Math.floor(1000 + Math.random() * 9000);
         }
 
-        // Salvar participantes com mesRef baseado na data da ação
         async function salvarMultiplosParticipantes(acaoId, nome, numerosTexto) {
             if (!acaoId) {
                 alert('Selecione uma ação.');
@@ -1298,15 +1279,6 @@
             const numeros = await processarNumeros(numerosTexto, acaoId);
             if (!numeros) return false;
 
-            const acao = acoes.find(a => a.id === acaoId);
-            if (!acao) {
-                alert('Ação não encontrada.');
-                return false;
-            }
-            // Calcular mês de referência a partir da data do sorteio
-            const dataSorteio = new Date(acao.dataSorteio);
-            const mesRef = `${dataSorteio.getFullYear()}-${String(dataSorteio.getMonth()+1).padStart(2,'0')}`;
-
             const groupId = 'grupo_' + Date.now() + '_' + Math.random().toString(36).substring(2);
             const reciboNum = gerarNumeroRecibo();
 
@@ -1319,8 +1291,7 @@
                     dataPagamento: null,
                     groupId: groupId,
                     reciboNum: reciboNum,
-                    acaoId: acaoId,
-                    mesRef: mesRef
+                    acaoId: acaoId
                 });
             }
             return true;
@@ -1357,7 +1328,7 @@
             }
         }
 
-        // --- RECIBO (inalterado) ---
+        // --- RECIBO ---
         function exibirReciboGrupo(groupId) {
             const grupo = participantes.filter(p => p.groupId === groupId);
             if (grupo.length === 0) return;
@@ -1406,7 +1377,6 @@
         }
 
         function gerarPDFGrupo(grupo) {
-            // ... (mesmo código, inalterado)
             const doc = new jsPDF();
             const pageWidth = doc.internal.pageSize.getWidth();
             const margin = 20;
@@ -1512,7 +1482,40 @@
             doc.save(`recibo_${grupo[0].nome.replace(/\s/g,'_')}_${reciboNum}.pdf`);
         }
 
-        // --- RELATÓRIO POR AÇÃO (inalterado) ---
+        // --- SORTEIO ---
+        function realizarSorteio(acaoId) {
+            const acao = acoes.find(a => a.id === acaoId);
+            if (!acao) return;
+
+            // Filtrar participantes pagos da ação
+            const participantesPagos = participantes.filter(p => p.acaoId === acaoId && p.pago);
+            
+            if (participantesPagos.length === 0) {
+                alert('Não há participantes pagos nesta ação para realizar o sorteio.');
+                return;
+            }
+
+            // Escolher um aleatório
+            const sorteado = participantesPagos[Math.floor(Math.random() * participantesPagos.length)];
+
+            // Exibir resultado no modal
+            sorteioResult.innerHTML = `
+                <div style="font-size: 1.5rem; margin-bottom: 16px;">🎉</div>
+                <div style="font-size: 1.2rem; font-weight: 700; color: #1e3b5c;">Número sorteado</div>
+                <div style="font-size: 3rem; font-weight: 800; color: #c9a03d; margin: 8px 0;">#${sorteado.numero}</div>
+                <div style="font-size: 1.1rem; margin-bottom: 12px;"><strong>${sorteado.nome}</strong></div>
+                <div style="background: #f0f6ff; border-radius: 16px; padding: 12px;">
+                    <span style="color: #1e3b5c;">Prêmio: </span>
+                    <span style="font-weight: 700;">${acao.premio}</span>
+                </div>
+                <div style="margin-top: 12px; color: #5f748e; font-size: 0.9rem;">
+                    Ação: ${acao.nome}
+                </div>
+            `;
+            sorteioModal.style.display = 'flex';
+        }
+
+        // --- RELATÓRIO POR AÇÃO ---
         function renderizarRelatorioAcoes() {
             if (!relatorioAcoesContainer) return;
             if (acoes.length === 0) {
@@ -1524,7 +1527,6 @@
             acoes.forEach(acao => {
                 const participantesAcao = participantes.filter(p => p.acaoId === acao.id && p.pago);
                 const totalArrecadado = participantesAcao.reduce((sum, p) => sum + acao.valor, 0);
-                const totalNumeros = participantesAcao.length;
                 const statusClass = acao.disponivel ? 'disponivel' : '';
                 const statusText = acao.disponivel ? 'Disponível' : 'Indisponível';
 
@@ -1551,6 +1553,9 @@
                         <button class="btn-relatorio-pdf export-acao-pdf" data-acao-id="${acao.id}">
                             📥 Exportar PDF da Ação
                         </button>
+                        <button class="btn-relatorio-pdf sortear-acao" data-acao-id="${acao.id}" style="background: #1e3b5c; color: white;">
+                            🎲 Sortear vencedor
+                        </button>
                     </div>
                 `;
             });
@@ -1562,10 +1567,15 @@
                     gerarPDFRelatorioAcao(acaoId);
                 });
             });
+            document.querySelectorAll('.sortear-acao').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const acaoId = e.target.dataset.acaoId;
+                    realizarSorteio(acaoId);
+                });
+            });
         }
 
         function gerarPDFRelatorioAcao(acaoId) {
-            // ... (código existente, inalterado)
             const acao = acoes.find(a => a.id === acaoId);
             if (!acao) return;
             const participantesAcao = participantes.filter(p => p.acaoId === acaoId && p.pago);
@@ -1651,7 +1661,7 @@
             doc.save(`relatorio_${acao.nome.replace(/\s/g,'_')}.pdf`);
         }
 
-        // --- RENDERIZAR LISTA DE PARTICIPANTES (usando mesRef) ---
+        // --- RENDERIZAR LISTA DE PARTICIPANTES ---
         function renderizarLista(lista) {
             if (lista.length === 0) {
                 participantListDiv.innerHTML = '<div class="empty-message">Nenhum número encontrado.</div>';
@@ -1680,8 +1690,6 @@
                 const multiple = info.count > 1 ? `<span class="group-badge">${info.count} núm</span>` : '';
                 const acao = acoes.find(a => a.id === p.acaoId);
                 const acaoNome = acao ? acao.nome : 'Ação não encontrada';
-                // Mostrar mês de referência
-                const mesRefStr = p.mesRef ? new Date(p.mesRef+'-01').toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }) : '';
 
                 html += `
                     <div class="participant-card" data-groupid="${p.groupId}">
@@ -1693,7 +1701,6 @@
                             <span class="part-status ${statusClass}">${statusText}</span>
                             <span class="part-date">📅 ${dataStr}</span>
                             <span class="group-badge">${acaoNome}</span>
-                            <span class="part-date">🗓️ ${mesRefStr}</span>
                         </div>
                         <div class="part-actions">
                             ${!info.allPaid ? `<button class="btn-action pagar" data-groupid="${p.groupId}">💵 Pagar grupo</button>` : ''}
@@ -1726,7 +1733,7 @@
             });
         }
 
-        // --- ATUALIZAR RESUMO (usando mesRef) ---
+        // --- ATUALIZAR RESUMO ---
         function atualizarResumo() {
             const totalNumeros = participantes.length;
             let arrecadado = 0;
@@ -1739,25 +1746,32 @@
             totalNumerosSpan.innerText = totalNumeros;
             totalArrecadadoSpan.innerText = `R$ ${arrecadado.toFixed(2)}`;
 
-            // Calcular total do mês atual com base em mesRef
-            const hoje = new Date();
-            const mesAtual = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
+            let listaMes = participantes;
+            if (filtroMes !== 'todos') {
+                const [ano, mes] = filtroMes.split('-').map(Number);
+                listaMes = participantes.filter(p => p.pago && p.dataPagamento && new Date(p.dataPagamento).getFullYear() === ano && (new Date(p.dataPagamento).getMonth() + 1) === mes);
+                monthLabel.innerText = `mês ${mes}/${ano}`;
+            } else {
+                const hoje = new Date();
+                const mesAtual = hoje.getMonth() + 1;
+                const anoAtual = hoje.getFullYear();
+                listaMes = participantes.filter(p => p.pago && p.dataPagamento && new Date(p.dataPagamento).getFullYear() === anoAtual && (new Date(p.dataPagamento).getMonth() + 1) === mesAtual);
+                monthLabel.innerText = 'mês atual';
+            }
             let totalMes = 0;
-            participantes.forEach(p => {
-                if (p.pago && p.mesRef === mesAtual) {
-                    const acao = acoes.find(a => a.id === p.acaoId);
-                    if (acao) totalMes += acao.valor;
-                }
+            listaMes.forEach(p => {
+                const acao = acoes.find(a => a.id === p.acaoId);
+                if (acao) totalMes += acao.valor;
             });
             totalMesSpan.innerText = `R$ ${totalMes.toFixed(2)}`;
-            monthLabel.innerText = 'mês atual';
         }
 
         function preencherSelectMeses() {
             const mesesSet = new Set();
             participantes.forEach(p => {
-                if (p.pago && p.mesRef) {
-                    mesesSet.add(p.mesRef);
+                if (p.pago && p.dataPagamento) {
+                    const d = new Date(p.dataPagamento);
+                    mesesSet.add(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
                 }
             });
             const mesesArray = Array.from(mesesSet).sort().reverse();
@@ -1779,13 +1793,13 @@
         function renderizarRelatorio() {
             const mesesMap = new Map();
             participantes.forEach(p => {
-                if (p.pago && p.mesRef) {
-                    const chave = p.mesRef;
+                if (p.pago && p.dataPagamento) {
+                    const d = new Date(p.dataPagamento);
+                    const chave = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
                     if (!mesesMap.has(chave)) {
-                        const [ano, mes] = chave.split('-');
                         mesesMap.set(chave, {
-                            ano: parseInt(ano),
-                            mes: parseInt(mes),
+                            ano: d.getFullYear(),
+                            mes: d.getMonth()+1,
                             participantes: [],
                             total: 0
                         });
@@ -1830,7 +1844,12 @@
                     listaFiltrada = listaFiltrada.filter(p => p.nome.toLowerCase().includes(termo));
                 }
                 if (filtroMes !== 'todos') {
-                    listaFiltrada = listaFiltrada.filter(p => p.pago && p.mesRef === filtroMes);
+                    const [ano, mes] = filtroMes.split('-').map(Number);
+                    listaFiltrada = listaFiltrada.filter(p => {
+                        if (!p.pago || !p.dataPagamento) return false;
+                        const d = new Date(p.dataPagamento);
+                        return d.getFullYear() === ano && (d.getMonth() + 1) === mes;
+                    });
                 }
                 renderizarLista(listaFiltrada);
             }
@@ -1838,7 +1857,7 @@
             preencherSelectMeses();
         }
 
-        // --- BACKUP (inalterado) ---
+        // --- BACKUP ---
         async function exportarBackup() {
             const configs = await db.config.toArray();
             const participantes = await db.participantes.toArray();
@@ -1888,7 +1907,7 @@
         // --- EVENTOS ---
         gearBtn.addEventListener('click', () => {
             configModal.style.display = 'flex';
-            renderizarListaAcoes();
+            renderizarListaAcoes(); // atualiza a lista ao abrir
         });
         fecharConfigModal.addEventListener('click', () => {
             configModal.style.display = 'none';
@@ -1898,12 +1917,14 @@
             if (e.target === reciboModal) reciboModal.style.display = 'none';
             if (e.target === participanteModal) participanteModal.style.display = 'none';
             if (e.target === editarAcaoModal) editarAcaoModal.style.display = 'none';
+            if (e.target === sorteioModal) sorteioModal.style.display = 'none';
         });
 
         fecharModal.addEventListener('click', () => reciboModal.style.display = 'none');
         btnPdf.addEventListener('click', () => {
             if (reciboAtual) gerarPDFGrupo(reciboAtual);
         });
+        fecharSorteioModal.addEventListener('click', () => sorteioModal.style.display = 'none');
 
         tabs.forEach(tab => {
             tab.addEventListener('click', () => {
@@ -1932,7 +1953,6 @@
             participanteNomeInput.value = '';
             participanteNumerosInput.value = '';
             participanteAcaoSelect.value = '';
-            acaoMesHint.innerText = '';
             participanteModal.style.display = 'flex';
         });
 
@@ -2035,6 +2055,7 @@
         exportBackupBtn.addEventListener('click', exportarBackup);
         importBackupBtn.addEventListener('click', importarBackup);
 
+        // Placeholder para os botões de exportação mensal/completo (podem ser implementados depois)
         exportMensalPDF.addEventListener('click', () => {
             alert('Funcionalidade de exportar PDF mensal será implementada em breve.');
         });
