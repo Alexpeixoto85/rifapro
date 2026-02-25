@@ -1009,12 +1009,17 @@
     (async function() {
         const { jsPDF } = window.jspdf;
 
-        // Banco de dados
+        // Banco de dados - versão 4 adiciona campo 'sorteado' em acoes
         const db = new Dexie('RifaProDB');
-        db.version(3).stores({
+        db.version(4).stores({
             participantes: 'id, nome, numero, pago, dataPagamento, groupId, acaoId',
             config: 'chave',
-            acoes: 'id, nome, premio, dataSorteio, valor, disponivel'
+            acoes: 'id, nome, premio, dataSorteio, valor, disponivel, sorteado'
+        }).upgrade(tx => {
+            // Para ações existentes, definir sorteado como false
+            return tx.table('acoes').toCollection().modify(acao => {
+                acao.sorteado = acao.sorteado || false;
+            });
         });
 
         // Abrir conexão
@@ -1110,7 +1115,8 @@
                     premio: premio,
                     dataSorteio: dataSorteio,
                     valor: valor,
-                    disponivel: true
+                    disponivel: true,
+                    sorteado: false
                 });
 
                 const participantesAntigos = await db.participantes.toArray();
@@ -1124,6 +1130,13 @@
         // --- CARREGAR AÇÕES ---
         async function carregarAcoes() {
             acoes = await db.acoes.toArray();
+            // Garantir que ações antigas tenham o campo sorteado
+            for (let a of acoes) {
+                if (a.sorteado === undefined) {
+                    a.sorteado = false;
+                    await db.acoes.update(a.id, { sorteado: false });
+                }
+            }
             preencherSelectAcoes();
             renderizarListaAcoes();
             renderizarRelatorioAcoes(); // atualiza relatórios
@@ -1150,10 +1163,11 @@
             acoes.forEach(a => {
                 const statusClass = a.disponivel ? 'disponivel' : '';
                 const statusText = a.disponivel ? 'Disponível' : 'Indisponível';
+                const sorteioIcon = a.sorteado ? ' ✅' : '';
                 html += `
                     <div class="acao-item">
                         <div class="acao-info">
-                            <div class="acao-nome">${a.nome} <span class="acao-status ${statusClass}">${statusText}</span></div>
+                            <div class="acao-nome">${a.nome}${sorteioIcon} <span class="acao-status ${statusClass}">${statusText}</span></div>
                             <div class="acao-detalhes">Prêmio: ${a.premio} | Sorteio: ${new Date(a.dataSorteio).toLocaleDateString('pt-BR')} | R$ ${a.valor.toFixed(2)}</div>
                         </div>
                         <div class="acao-actions">
@@ -1482,10 +1496,17 @@
             doc.save(`recibo_${grupo[0].nome.replace(/\s/g,'_')}_${reciboNum}.pdf`);
         }
 
-        // --- SORTEIO ---
-        function realizarSorteio(acaoId) {
+        // --- SORTEIO (com verificação de já sorteado) ---
+        async function realizarSorteio(acaoId) {
             const acao = acoes.find(a => a.id === acaoId);
             if (!acao) return;
+
+            // Verificar se já foi sorteada
+            if (acao.sorteado) {
+                if (!confirm('Esta ação já foi sorteada. Deseja realizar um novo sorteio?')) {
+                    return;
+                }
+            }
 
             // Filtrar participantes pagos da ação
             const participantesPagos = participantes.filter(p => p.acaoId === acaoId && p.pago);
@@ -1497,6 +1518,13 @@
 
             // Escolher um aleatório
             const sorteado = participantesPagos[Math.floor(Math.random() * participantesPagos.length)];
+
+            // Marcar ação como sorteada (se ainda não estava)
+            if (!acao.sorteado) {
+                await db.acoes.update(acaoId, { sorteado: true });
+                acao.sorteado = true; // atualiza localmente
+                renderizarListaAcoes(); // atualiza ícone na lista de ações
+            }
 
             // Exibir resultado no modal
             sorteioResult.innerHTML = `
@@ -1529,11 +1557,12 @@
                 const totalArrecadado = participantesAcao.reduce((sum, p) => sum + acao.valor, 0);
                 const statusClass = acao.disponivel ? 'disponivel' : '';
                 const statusText = acao.disponivel ? 'Disponível' : 'Indisponível';
+                const sorteadoIcon = acao.sorteado ? ' ✅ (sorteada)' : '';
 
                 html += `
                     <div class="acao-relatorio-card" data-acao-id="${acao.id}">
                         <div class="acao-relatorio-header">
-                            <span class="acao-relatorio-nome">${acao.nome}</span>
+                            <span class="acao-relatorio-nome">${acao.nome}${sorteadoIcon}</span>
                             <span class="acao-relatorio-status ${statusClass}">${statusText}</span>
                         </div>
                         <div class="acao-relatorio-detalhes">
@@ -1992,7 +2021,8 @@
                 premio,
                 dataSorteio: data,
                 valor,
-                disponivel
+                disponivel,
+                sorteado: false
             };
             await db.acoes.add(novaAcao);
             await carregarAcoes();
